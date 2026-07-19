@@ -1,0 +1,17 @@
+# Render Blueprint - 一键部署配置
+# 文档: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: linkyi-agent
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=1 --threads=4 --timeout=120 --graceful-timeout=30 --bind=0.0.0.0:$PORT
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: LLM_MODEL
+        value: qwen-plus

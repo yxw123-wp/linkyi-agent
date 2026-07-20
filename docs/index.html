@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <base href="./">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>链弈融通 | 多式联运智能体系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #050814;
+            --bg-secondary: #0a1024;
+            --bg-card: rgba(15, 24, 48, 0.75);
+            --border-glow: rgba(0, 212, 255, 0.25);
+            --text-primary: #e8eef8;
+            --text-secondary: #8a99b8;
+            --text-muted: #4a5568;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #7b68ee;
+            --accent-green: #00ff88;
+            --accent-orange: #ffaa00;
+            --accent-red: #ff4757;
+            --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #7b68ee 100%);
+            --gradient-success: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            --gradient-warning: linear-gradient(135deg, #ffaa00 0%, #ff6b6b 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ===== 动态背景 ===== */
+        .bg-animation {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        .bg-animation::before {
+            content: ''; position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(0, 212, 255, 0.08), transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(123, 104, 238, 0.08), transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.04), transparent 50%);
+            animation: bgFloat 20s ease-in-out infinite;
+        }
+        @keyframes bgFloat {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-30px, 20px) rotate(120deg); }
+            66% { transform: translate(20px, -30px) rotate(240deg); }
+        }
+        .grid-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1; pointer-events: none;
+        }
+
+        /* ===== 登录页 ===== */
+        #login-page {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999;
+            background: var(--bg-primary);
+        }
+        .login-container {
+            position: relative; z-index: 10;
+            display: flex; align-items: center; gap: 60px;
+        }
+        .login-brand {
+            max-width: 480px;
+        }
+        .login-brand .badge {
+            display: inline-block; padding: 6px 14px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px; font-size: 12px;
+            color: var(--accent-cyan); margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .login-brand h1 {
+            font-size: 48px; font-weight: 800; line-height: 1.1;
+            margin-bottom: 16px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        .login-brand .subtitle {
+            font-size: 16px; color: var(--text-secondary);
+            line-height: 1.6; margin-bottom: 24px;
+        }
+        .login-brand .features {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .login-brand .feature {
+            display: flex; align-items: center; gap: 12px;
+            font-size: 13px; color: var(--text-secondary);
+        }
+        .login-brand .feature-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .login-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 20px;
+            padding: 40px;
+            width: 400px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.1);
+            position: relative; overflow: hidden;
+        }
+        .login-box::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--gradient-primary);
+        }
+        .login-box h2 {
+            font-size: 22px; margin-bottom: 4px; font-weight: 700;
+        }
+        .auth-tabs {
+            display: flex; gap: 0; margin-bottom: 24px;
+            border-bottom: 1px solid rgba(100, 130, 180, 0.15);
+        }
+        .auth-tab {
+            flex: 1; text-align: center; padding: 10px 0;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            color: var(--text-muted); transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            letter-spacing: 1px;
+        }
+        .auth-tab.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+        }
+        .auth-tab:hover { color: var(--text-primary); }
+        .login-box .form-subtitle {
+            color: var(--text-muted); font-size: 12px; margin-bottom: 28px;
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block; font-size: 12px; color: var(--text-secondary);
+            margin-bottom: 6px; letter-spacing: 0.5px;
+        }
+        .form-group input {
+            width: 100%; padding: 14px 16px;
+            background: rgba(5, 8, 20, 0.6);
+            border: 1px solid rgba(100, 130, 180, 0.2);
+            border-radius: 10px; color: var(--text-primary);
+            font-size: 15px; transition: all 0.3s;
+        }
+        .form-group input:focus {
+            outline: none; border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+            background: rgba(5, 8, 20, 0.8);
+        }
+        .btn-login {
+            width: 100%; padding: 14px;
+            background: var(--gradient-primary);
+            border: none; border-radius: 10px; color: #fff;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s; letter-spacing: 1px;
+            position: relative; overflow: hidden;
+        }
+        .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+        .btn-login:active { transform: translateY(0); }
+        .login-error {
+            color: var(--accent-red); font-size: 13px;
+            text-align: center; margin-top: 12px; display: none;
+            padding: 8px; background: rgba(255, 71, 87, 0.1);
+            border-radius: 6px;
+        }
+        .login-hint {
+            margin-top: 20px; padding: 12px;
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 8px; font-size: 12px; color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* ===== 主应用 ===== */
+        #main-app { display: none; position: relative; z-index: 2; min-height: 100vh; }
+        .top-bar {
+            background: linear-gradient(180deg, rgba(5, 8, 20, 0.95), rgba(10, 16, 36, 0.85));
+            border-bottom: 1px solid var(--border-glow);
+            padding: 12px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1000;
+            backdrop-filter: blur(24px);
+            box-shadow: 0 2px 20px rgba(0, 212, 255, 0.08);
+        }
+        .top-bar::before {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), rgba(123, 104, 238, 0.5), transparent);
+        }
+        .top-bar .brand {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .top-bar .brand-logo {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: var(--gradient-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; color: #fff; font-size: 17px;
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+            position: relative;
+        }
+        .top-bar .brand-logo::after {
+            content: ''; position: absolute; inset: -2px;
+            border-radius: 12px; border: 1px solid rgba(0, 212, 255, 0.3);
+            animation: logoRing 3s ease-in-out infinite;
+        }
+        @keyframes logoRing {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.08); }
+        }
+        .top-bar .brand-text {
+            font-size: 17px; font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: baseline; gap: 6px;
+        }
+        .top-bar .brand-en {
+            font-size: 11px; font-weight: 600;
+            color: var(--accent-cyan); opacity: 0.7;
+            -webkit-text-fill-color: var(--accent-cyan);
+        }
+        .top-bar .brand-sub {
+            font-size: 10px; color: var(--text-muted); margin-top: 2px;
+            letter-spacing: 0.5px;
+        }
+        .top-nav {
+            display: flex; gap: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px; border-radius: 10px;
+            border: 1px solid rgba(100, 130, 180, 0.1);
+        }
+        .nav-item {
+            padding: 7px 14px; border-radius: 7px;
+            font-size: 12px; color: var(--text-secondary);
+            cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; gap: 6px;
+            font-weight: 500;
+        }
+        .nav-item:hover {
+            background: rgba(0, 212, 255, 0.1); color: var(--accent-cyan);
+        }
+        .nav-item.active {
+            background: var(--gradient-primary); color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+        }
+        .nav-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: currentColor; opacity: 0.6;
+        }
+        .top-meta {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .top-bar .status-indicator {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 20px; font-size: 11px;
+            color: var(--accent-green); font-weight: 500;
+        }
+        .llm-indicator, .chain-indicator {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px;
+            background: rgba(123, 104, 238, 0.08);
+            border: 1px solid rgba(123, 104, 238, 0.25);
+            border-radius: 20px; font-size: 10px;
+            color: var(--accent-purple); font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        .chain-indicator {
+            background: rgba(255, 170, 0, 0.08);
+            border-color: rgba(255, 170, 0, 0.25);
+            color: var(--accent-orange);
+        }
+        .llm-dot, .chain-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+            animation: blink 2s ease-in-out infinite;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: blink 2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .top-bar .user-area { display: flex; align-items: center; gap: 14px; }
+        .top-bar .user-info {
+            font-size: 13px; color: var(--text-secondary);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .top-bar .user-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--gradient-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 600; color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+        }
+        .btn-logout {
+            padding: 6px 14px;
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            border-radius: 6px; color: var(--accent-red);
+            cursor: pointer; font-size: 12px; transition: all 0.3s;
+        }
+        .btn-logout:hover { background: rgba(255, 71, 87, 0.2); }
+
+        /* 地图图例 */
+        .map-legend {
+            position: absolute; bottom: 16px; left: 16px; z-index: 1000;
+            background: rgba(5, 8, 20, 0.92);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 10px; padding: 12px 14px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            font-size: 11px; min-width: 180px;
+        }
+        .map-legend-title {
+            font-size: 11px; font-weight: 700; color: var(--accent-cyan);
+            margin-bottom: 8px; letter-spacing: 0.5px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 0; color: var(--text-secondary);
+        }
+        .legend-marker {
+            width: 16px; height: 16px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .legend-line {
+            width: 18px; height: 2px; border-radius: 1px;
+        }
+        .legend-line.dashed {
+            background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px);
+            height: 2px;
+        }
+
+        /* 场景按钮 tooltip */
+        .scenario-btn { position: relative; }
+        .scenario-btn::before {
+            content: attr(data-tip);
+            position: absolute; bottom: 100%; left: 50%;
+            transform: translateX(-50%) translateY(-4px);
+            background: rgba(5, 8, 20, 0.95);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: var(--accent-cyan); font-size: 10px;
+            padding: 4px 8px; border-radius: 4px;
+            white-space: nowrap; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s; z-index: 100;
+        }
+        .scenario-btn:hover::before { opacity: 1; }
+
+        /* 地图 hover tooltip 美化 */
+        .leaflet-tooltip.map-tip {
+            background: rgba(5, 8, 20, 0.95) !important;
+            border: 1px solid rgba(0, 212, 255, 0.4) !important;
+            color: #e8eef8 !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 212, 255, 0.2) !important;
+            font-size: 11px !important;
+            backdrop-filter: blur(10px);
+        }
+        .leaflet-tooltip.map-tip::before {
+            border-top-color: rgba(0, 212, 255, 0.4) !important;
+        }
+
+        .container {
+            max-width: 1700px; margin: 0 auto; padding: 24px;
+            display: grid; grid-template-columns: 380px 1fr; gap: 20px;
+        }
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid rgba(100, 130, 180, 0.15);
+            border-radius: 14px; padding: 22px;
+            margin-bottom: 18px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            position: relative;
+        }
+        .panel:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.08);
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        .panel-title {
+            font-size: 14px; font-weight: 600;
+            color: var(--text-primary);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .panel-title-icon {
+            width: 24px; height: 24px; border-radius: 6px;
+            background: rgba(0, 212, 255, 0.1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+        }
+        .panel-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 10px;
+            background: rgba(0, 212, 255, 0.1); color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+        }
+
+        /* 左侧栏 */
+        .left-column { display: flex; flex-direction: column; gap: 0; }
+
+        /* 输入区 */
+        .scenario-buttons {
+            display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+        }
+        .scenario-btn {
+            padding: 8px 14px;
+            background: rgba(0, 100, 200, 0.1);
+            border: 1px solid rgba(0, 150, 255, 0.25);
+            border-radius: 8px; color: var(--accent-cyan);
+            font-size: 12px; cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .scenario-btn:hover {
+            background: rgba(0, 100, 200, 0.25);
+            border-color: var(--accent-cyan);
+            transform: translateY(-1px);
+        }
+        .input-group { margin-bottom: 14px; }
+        .input-group label {
+            display: block; font-size: 11px; color: var(--text-secondary);
+            margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .input-group input, .input-group textarea {
+            width: 100%; padding: 11px 14px;
+            background: rgba(5, 8, 20, 0.6);
+            border: 1px solid rgba(100, 130, 180, 0.2);
+            border-radius: 8px; color: var(--text-primary);
+            font-size: 13px; font-family: inherit; transition: all 0.3s;
+        }
+        .input-group textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none; border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        .task-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* 阶段控制 */
+        .stages-vertical { display: flex; flex-direction: column; gap: 10px; }
+        .stage-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px;
+            background: rgba(5, 8, 20, 0.5);
+            border: 1px solid rgba(100, 130, 180, 0.15);
+            border-radius: 10px;
+            transition: all 0.3s; position: relative;
+        }
+        .stage-item.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+        .stage-item.done {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+        .stage-num {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700; flex-shrink: 0;
+            background: rgba(100, 130, 180, 0.1);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+        }
+        .stage-item.active .stage-num {
+            background: var(--gradient-primary); color: #fff;
+        }
+        .stage-item.done .stage-num {
+            background: var(--gradient-success); color: #fff;
+        }
+        .stage-info { flex: 1; }
+        .stage-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+        .stage-desc { font-size: 11px; color: var(--text-muted); }
+        .stage-status {
+            font-size: 10px; padding: 3px 8px; border-radius: 10px;
+            background: rgba(100, 130, 180, 0.1); color: var(--text-muted);
+        }
+        .stage-item.active .stage-status {
+            background: rgba(0, 212, 255, 0.15); color: var(--accent-cyan);
+        }
+        .stage-item.done .stage-status {
+            background: rgba(0, 255, 136, 0.15); color: var(--accent-green);
+        }
+
+        .action-bar { display: flex; gap: 10px; margin-top: 14px; }
+        .btn-primary {
+            flex: 1; padding: 13px;
+            background: var(--gradient-primary);
+            border: none; border-radius: 10px; color: #fff;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s; letter-spacing: 0.5px;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.3);
+        }
+        .btn-secondary {
+            padding: 13px 20px;
+            background: rgba(100, 130, 180, 0.1);
+            border: 1px solid rgba(100, 130, 180, 0.3);
+            border-radius: 10px; color: var(--text-secondary);
+            font-size: 13px; cursor: pointer; transition: all 0.3s;
+        }
+        .btn-secondary:hover { background: rgba(100, 130, 180, 0.2); }
+
+        /* 日志 */
+        .log-panel {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(100, 130, 180, 0.1);
+            border-radius: 8px; padding: 12px;
+            height: 260px; overflow-y: auto;
+            font-family: 'Consolas', 'JetBrains Mono', monospace;
+            font-size: 11px; line-height: 1.7;
+        }
+        .log-line { margin-bottom: 2px; word-break: break-all; }
+        .log-time { color: var(--text-muted); }
+        .log-info { color: #8ac4ff; }
+        .log-success { color: var(--accent-green); }
+        .log-warning { color: var(--accent-orange); }
+        .log-error { color: var(--accent-red); }
+
+        /* 右侧主区 */
+        .right-column { display: flex; flex-direction: column; gap: 0; }
+        .stats-row {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+            margin-bottom: 18px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(100, 130, 180, 0.15);
+            border-radius: 12px; padding: 16px;
+            backdrop-filter: blur(10px);
+            position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+            background: var(--accent-cyan);
+        }
+        .stat-card.green::before { background: var(--accent-green); }
+        .stat-card.orange::before { background: var(--accent-orange); }
+        .stat-card.purple::before { background: var(--accent-purple); }
+        .stat-label {
+            font-size: 11px; color: var(--text-muted);
+            margin-bottom: 6px; letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-size: 22px; font-weight: 700; color: var(--text-primary);
+        }
+        .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+        /* 结果展示 */
+        .data-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .data-card {
+            background: rgba(5, 8, 20, 0.5);
+            border: 1px solid rgba(100, 130, 180, 0.15);
+            border-radius: 8px; padding: 12px;
+        }
+        .data-card .label {
+            font-size: 10px; color: var(--text-muted);
+            margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .data-card .value { font-size: 14px; font-weight: 600; }
+
+        .bid-comparison {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+            margin-bottom: 14px;
+        }
+        .bid-card {
+            background: rgba(5, 8, 20, 0.5);
+            border: 1px solid rgba(100, 130, 180, 0.2);
+            border-radius: 10px; padding: 16px;
+            position: relative; transition: all 0.3s;
+        }
+        .bid-card.winner {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+        }
+        .bid-card .agent-name {
+            font-size: 13px; font-weight: 600; margin-bottom: 4px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .bid-card .strategy {
+            font-size: 11px; color: var(--text-muted); margin-bottom: 12px;
+        }
+        .bid-card .price {
+            font-size: 26px; font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .bid-card.winner .price {
+            background: var(--gradient-success);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .bid-card .meta {
+            display: flex; justify-content: space-between;
+            margin-top: 8px; font-size: 11px; color: var(--text-secondary);
+        }
+        .bid-card .formula {
+            font-size: 10px; color: var(--text-muted);
+            margin-top: 8px; padding: 6px;
+            background: rgba(0, 0, 0, 0.3); border-radius: 4px;
+            font-family: monospace;
+        }
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 10px;
+            font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+        }
+        .badge-win { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
+        .badge-lose { background: rgba(255, 71, 87, 0.15); color: var(--accent-red); }
+
+        .winner-banner {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 212, 255, 0.05));
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 10px; padding: 14px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .winner-banner .info { flex: 1; }
+        .winner-banner .title { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+        .winner-banner .name { font-size: 15px; font-weight: 700; color: var(--accent-green); }
+        .winner-banner .saving {
+            text-align: right;
+        }
+        .winner-banner .saving-value {
+            font-size: 18px; font-weight: 700; color: var(--accent-green);
+        }
+        .winner-banner .saving-label { font-size: 10px; color: var(--text-muted); }
+
+        /* 地图 */
+        #map {
+            height: 480px; border-radius: 12px;
+            border: 1px solid rgba(100, 130, 180, 0.2);
+            background: var(--bg-secondary);
+        }
+        .leaflet-container { background: var(--bg-secondary) !important; }
+
+        /* 图表 */
+        .chart-container { height: 280px; position: relative; }
+
+        /* 加载 */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 20, 0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 9998; backdrop-filter: blur(8px);
+        }
+        .loading-box { text-align: center; }
+        .spinner {
+            width: 60px; height: 60px; margin: 0 auto 20px;
+            border: 3px solid rgba(0, 212, 255, 0.15);
+            border-top-color: var(--accent-cyan);
+            border-right-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--accent-cyan); font-size: 14px; letter-spacing: 1px;
+        }
+        .loading-sub {
+            color: var(--text-muted); font-size: 11px; margin-top: 6px;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 130, 180, 0.3); border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 130, 180, 0.5); }
+
+        .pulse { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .empty-state {
+            text-align: center; padding: 30px 20px; color: var(--text-muted);
+        }
+        .empty-state-icon {
+            font-size: 32px; margin-bottom: 8px; opacity: 0.4;
+        }
+        .empty-state-text { font-size: 12px; }
+
+        /* ===== 页脚 ===== */
+        .app-footer {
+            border-top: 1px solid rgba(100, 130, 180, 0.15);
+            background: rgba(5, 8, 20, 0.6);
+            padding: 24px 32px; margin-top: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .footer-inner {
+            max-width: 1700px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px;
+        }
+        .footer-brand { display: flex; align-items: center; gap: 12px; }
+        .footer-logo {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: var(--gradient-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; color: #fff; font-size: 14px;
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+        }
+        .footer-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .footer-tag { font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px; }
+        .footer-tech { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tech-tag {
+            padding: 4px 10px; font-size: 10px;
+            background: rgba(0, 212, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 10px; color: var(--accent-cyan);
+            letter-spacing: 0.3px;
+        }
+        .footer-copy { font-size: 11px; color: var(--text-muted); }
+
+        /* 数据卡 hover 效果 */
+        .data-card {
+            transition: all 0.3s; cursor: default;
+        }
+        .data-card:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            background: rgba(0, 212, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        /* Logo 发光脉动 */
+        .top-bar .brand-logo {
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3); }
+            50% { box-shadow: 0 4px 24px rgba(0, 212, 255, 0.6); }
+        }
+
+        /* 阶段连接线 */
+        .stages-vertical { position: relative; }
+        .stages-vertical::before {
+            content: ''; position: absolute;
+            left: 33px; top: 20px; bottom: 20px; width: 2px;
+            background: linear-gradient(to bottom, rgba(0, 212, 255, 0.2), rgba(0, 255, 136, 0.2));
+            z-index: 0;
+        }
+        .stage-item { position: relative; z-index: 1; }
+        .stage-num { position: relative; }
+        .stage-num::after {
+            content: ''; position: absolute; inset: -3px;
+            border-radius: 12px; opacity: 0;
+            background: var(--gradient-primary);
+            filter: blur(8px); z-index: -1;
+            transition: opacity 0.3s;
+        }
+        .stage-item.active .stage-num::after,
+        .stage-item.done .stage-num::after { opacity: 0.5; }
+
+        /* 报价卡 hover 浮动 */
+        .bid-card { transition: all 0.3s; }
+        .bid-card:hover { transform: translateY(-3px); }
+        .bid-card.winner:hover {
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.2);
+        }
+
+        /* 统计卡 hover */
+        .stat-card { transition: all 0.3s; cursor: default; }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(0, 212, 255, 0.3), rgba(123, 104, 238, 0.3));
+            border-radius: 3px;
+        }
+
+        /* 输入框 focus 渐变边框 */
+        .input-group input:focus, .input-group textarea:focus {
+            background: rgba(0, 212, 255, 0.04);
+        }
+
+        /* 场景按钮 hover 闪光 */
+        .scenario-btn { position: relative; overflow: hidden; }
+        .scenario-btn::after {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        .scenario-btn:hover::after { left: 100%; }
+
+        /* 按钮 hover 光晕 */
+        .btn-primary:hover {
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.4), 0 0 20px rgba(123, 104, 238, 0.3);
+        }
+        .btn-login:hover {
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4), 0 0 30px rgba(123, 104, 238, 0.3);
+        }
+
+        /* 加载动画增强 */
+        .spinner {
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+        }
+
+        /* 中标横幅闪光 */
+        .winner-banner {
+            position: relative; overflow: hidden;
+        }
+        .winner-banner::after {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.15), transparent);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -50%; }
+            100% { left: 150%; }
+        }
+
+        /* 区块哈希等宽字体优化 */
+        .data-card .value[style*="word-break"] {
+            font-family: 'Consolas', 'JetBrains Mono', monospace;
+        }
+
+        /* 响应式优化 */
+        @media (max-width: 1200px) {
+            .container { grid-template-columns: 1fr; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .bid-comparison { grid-template-columns: 1fr; }
+            .login-container { flex-direction: column; gap: 30px; }
+            .login-brand { text-align: center; max-width: 400px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-animation"></div>
+<div class="grid-overlay"></div>
+
+<!-- 登录页 -->
+<div id="login-page">
+    <div class="login-container">
+        <div class="login-brand">
+            <div class="badge">Multi-Modal Transport · Intelligent Agent</div>
+            <h1>链弈融通</h1>
+            <div class="subtitle">突发阻断下基于非合作博弈与PBFT共识的多式联运智能体</div>
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon" style="background:rgba(0,212,255,0.15);color:#00d4ff;">🌐</div>
+                    <span>LLM预言机引擎 · 实时新闻语义降维</span>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon" style="background:rgba(123,104,238,0.15);color:#7b68ee;">🧠</div>
+                    <span>多智能体非合作博弈 · 帕累托最优寻优</span>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon" style="background:rgba(255,170,0,0.15);color:#ffaa00;">🔗</div>
+                    <span>PBFT拜占庭容错共识 · 区块哈希上链</span>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon" style="background:rgba(0,255,136,0.15);color:#00ff88;">🌍</div>
+                    <span>数字孪生沙盘 · 全球调度可视化</span>
+                </div>
+            </div>
+        </div>
+        <div class="login-box">
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">登 录</div>
+                <div class="auth-tab" id="tab-register" onclick="switchTab('register')">注 册</div>
+            </div>
+            <!-- 登录表单 -->
+            <div id="form-login">
+                <div class="form-subtitle">请输入账号密码访问智能体系统</div>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="login-user" placeholder="请输入用户名" value="admin">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="login-pass" placeholder="请输入密码" value="linkyi2026">
+                </div>
+                <button class="btn-login" onclick="doLogin()">登 录 系 统</button>
+                <div class="login-error" id="login-error"></div>
+                <div class="login-hint">演示账号：admin / linkyi2026</div>
+            </div>
+            <!-- 注册表单 -->
+            <div id="form-register" style="display:none;">
+                <div class="form-subtitle">注册新账号，即刻使用智能体系统</div>
+                <div class="form-group">
+                    <label>用户名（至少3位）</label>
+                    <input type="text" id="reg-user" placeholder="请设置用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码（至少6位）</label>
+                    <input type="password" id="reg-pass" placeholder="请设置密码">
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="reg-pass2" placeholder="请再次输入密码">
+                </div>
+                <button class="btn-login" onclick="doRegister()">注 册 并 登 录</button>
+                <div class="login-error" id="reg-error"></div>
+                <div class="login-hint">注册即自动登录，无需重复输入</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loading">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-text">正在处理...</div>
+        <div class="loading-sub" id="loading-sub">请稍候</div>
+    </div>
+</div>
+
+<!-- 主应用 -->
+<div id="main-app">
+    <div class="top-bar">
+        <div class="brand">
+            <div class="brand-logo">链</div>
+            <div>
+                <div class="brand-text">链弈融通 <span class="brand-en">LinkYi</span></div>
+                <div class="brand-sub">Multi-Modal Transport Intelligent Agent</div>
+            </div>
+        </div>
+        <nav class="top-nav">
+            <div class="nav-item active"><span class="nav-dot"></span>智能调度</div>
+            <div class="nav-item" onclick="scrollToId('map-panel')"><span class="nav-dot"></span>数字孪生</div>
+            <div class="nav-item" onclick="scrollToId('chart-panel')"><span class="nav-dot"></span>数据分析</div>
+        </nav>
+        <div class="top-meta">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>实时运行</span>
+            </div>
+            <div class="llm-indicator" title="LLM引擎状态">
+                <span class="llm-dot"></span>
+                <span class="llm-text">Qwen-Plus</span>
+            </div>
+            <div class="chain-indicator" title="共识链状态">
+                <span class="chain-dot"></span>
+                <span class="chain-text">PBFT · 4 Nodes</span>
+            </div>
+        </div>
+        <div class="user-area">
+            <div class="user-info">
+                <div class="user-avatar" id="user-avatar">A</div>
+                <span id="user-display">admin</span>
+            </div>
+            <button class="btn-logout" onclick="doLogout()">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 左列 -->
+        <div class="left-column">
+            <!-- 场景输入 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">🌐</div>
+                        场景输入
+                    </div>
+                    <div class="panel-badge">INPUT</div>
+                </div>
+                <div class="scenario-buttons">
+                    <button class="scenario-btn" onclick="loadScenario('suez')" data-tip="物理阻断·25天">🛢 苏伊士运河</button>
+                    <button class="scenario-btn" onclick="loadScenario('panama')" data-tip="干旱限行·40天">🌊 巴拿马运河</button>
+                    <button class="scenario-btn" onclick="loadScenario('malacca')" data-tip="海盗袭击·15天">⚔ 马六甲海峡</button>
+                    <button class="scenario-btn" onclick="loadScenario('hormuz')" data-tip="军事封锁·20天">🚢 霍尔木兹海峡</button>
+                    <button class="scenario-btn" onclick="loadScenario('cape')" data-tip="特大风暴·18天">🌀 好望角</button>
+                    <button class="scenario-btn" onclick="loadScenario('taiwan')" data-tip="地震异动·12天">🌋 台湾海峡</button>
+                </div>
+                <div class="input-group">
+                    <label>突发新闻文本</label>
+                    <textarea id="news-text" placeholder="在此粘贴或输入突发航运新闻..."></textarea>
+                </div>
+            </div>
+
+            <!-- 运输任务 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">🚢</div>
+                        运输任务配置
+                    </div>
+                    <div class="panel-badge">RFP</div>
+                </div>
+                <div class="task-row">
+                    <div class="input-group">
+                        <label>发货地</label>
+                        <input type="text" id="task-origin" value="上海">
+                    </div>
+                    <div class="input-group">
+                        <label>目的地</label>
+                        <input type="text" id="task-dest" value="鹿特丹">
+                    </div>
+                </div>
+                <div class="task-row">
+                    <div class="input-group">
+                        <label>货量 (TEU)</label>
+                        <input type="number" id="task-teu" value="100">
+                    </div>
+                    <div class="input-group">
+                        <label>时间价值 ($/天)</label>
+                        <input type="number" id="task-tv" value="85">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段控制 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">⚙️</div>
+                        四阶段流水线
+                    </div>
+                    <div class="panel-badge">PIPELINE</div>
+                </div>
+                <div class="stages-vertical">
+                    <div class="stage-item" id="card-1">
+                        <div class="stage-num">01</div>
+                        <div class="stage-info">
+                            <div class="stage-name">预言机引擎</div>
+                            <div class="stage-desc">LLM语义降维 · Qwen-Plus</div>
+                        </div>
+                        <div class="stage-status" id="status-1">待执行</div>
+                    </div>
+                    <div class="stage-item" id="card-2">
+                        <div class="stage-num">02</div>
+                        <div class="stage-info">
+                            <div class="stage-name">博弈引擎</div>
+                            <div class="stage-desc">非合作博弈 · 帕累托寻优</div>
+                        </div>
+                        <div class="stage-status" id="status-2">待执行</div>
+                    </div>
+                    <div class="stage-item" id="card-3">
+                        <div class="stage-num">03</div>
+                        <div class="stage-info">
+                            <div class="stage-name">PBFT共识</div>
+                            <div class="stage-desc">拜占庭容错 · 哈希上链</div>
+                        </div>
+                        <div class="stage-status" id="status-3">待执行</div>
+                    </div>
+                    <div class="stage-item" id="card-4">
+                        <div class="stage-num">04</div>
+                        <div class="stage-info">
+                            <div class="stage-name">数字孪生</div>
+                            <div class="stage-desc">全球调度 · 可视化沙盘</div>
+                        </div>
+                        <div class="stage-status" id="status-4">待执行</div>
+                    </div>
+                </div>
+                <div class="action-bar">
+                    <button class="btn-primary" onclick="runAll()">🚀 一键全自动运行</button>
+                    <button class="btn-secondary" onclick="resetSystem()">🔄 重置</button>
+                </div>
+            </div>
+
+            <!-- 日志 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">📋</div>
+                        实时系统日志
+                    </div>
+                    <div class="panel-badge" id="log-count">0 条</div>
+                </div>
+                <div class="log-panel" id="log-panel">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-text">等待系统运行...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右列 -->
+        <div class="right-column">
+            <!-- 统计卡片 -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Crisis UUID</div>
+                    <div class="stat-value" id="stat-uuid" style="font-size:14px;color:#00d4ff;">—</div>
+                    <div class="stat-sub">事件标识</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-label">阻断节点</div>
+                    <div class="stat-value" id="stat-node" style="font-size:14px;color:#ffaa00;">—</div>
+                    <div class="stat-sub">物理咽喉</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-label">市场恐慌指数</div>
+                    <div class="stat-value" id="stat-panic">—</div>
+                    <div class="stat-sub">Panic Index</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">最优决策</div>
+                    <div class="stat-value" id="stat-winner" style="font-size:14px;color:#00ff88;">—</div>
+                    <div class="stat-sub">帕累托最优</div>
+                </div>
+            </div>
+
+            <!-- 阶段一结果 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon" style="background:rgba(0,212,255,0.15);">01</div>
+                        预言机协议包
+                    </div>
+                    <div class="panel-badge">ORACLE</div>
+                </div>
+                <div id="oracle-result">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🧠</div>
+                        <div class="empty-state-text">运行阶段一后显示LLM提取的结构化参数</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段二结果 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon" style="background:rgba(123,104,238,0.15);">02</div>
+                        多智能体博弈结果
+                    </div>
+                    <div class="panel-badge">GAME</div>
+                </div>
+                <div id="game-result">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚔️</div>
+                        <div class="empty-state-text">运行阶段二后显示承运商报价与决策</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段三结果 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon" style="background:rgba(255,170,0,0.15);">03</div>
+                        PBFT共识上链
+                    </div>
+                    <div class="panel-badge">CONSENSUS</div>
+                </div>
+                <div id="consensus-result">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔗</div>
+                        <div class="empty-state-text">运行阶段三后显示共识结果与区块哈希</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 地图 -->
+            <div class="panel" id="map-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon" style="background:rgba(0,255,136,0.15);">04</div>
+                        数字孪生全球调度沙盘
+                    </div>
+                    <div class="panel-badge">DIGITAL TWIN</div>
+                </div>
+                <div id="map" style="position:relative;">
+                    <div class="map-legend" id="map-legend" style="display:none;">
+                        <div class="map-legend-title">
+                            <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 6px var(--accent-cyan);"></span>
+                            路线图例
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-marker">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#00d4ff;box-shadow:0 0 6px #00d4ff;"></span>
+                            </span>
+                            <span>城市节点（起讫点）</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-marker">
+                                <span style="width:9px;height:9px;border-radius:50%;background:#ff4757;box-shadow:0 0 8px #ff4757;"></span>
+                            </span>
+                            <span>阻断节点（事件点）</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-line" style="background:#ff4757;box-shadow:0 0 4px #ff4757;"></span>
+                            <span>原方案路径（已阻断）</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-line dashed" style="color:#ffaa00;"></span>
+                            <span>绕行方案路径</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-line" style="background:#00ff88;box-shadow:0 0 6px #00ff88;"></span>
+                            <span>中标方案路径</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表 -->
+            <div class="panel" id="chart-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <div class="panel-title-icon">📊</div>
+                        帕累托综合效用对比
+                    </div>
+                    <div class="panel-badge">ANALYTICS</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="utility-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="app-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <div class="footer-logo">链</div>
+                <div>
+                    <div class="footer-name">链弈融通 · LinkYi</div>
+                    <div class="footer-tag">Multi-Modal Transport Intelligent Agent</div>
+                </div>
+            </div>
+            <div class="footer-tech">
+                <span class="tech-tag">Qwen-Plus</span>
+                <span class="tech-tag">PBFT Consensus</span>
+                <span class="tech-tag">Pareto Optimal</span>
+                <span class="tech-tag">Digital Twin</span>
+                <span class="tech-tag">Flask</span>
+            </div>
+            <div class="footer-copy">© 2026 LinkYi Agent System · v1.0</div>
+        </div>
+    </footer>
+</div>
+
+<script>
+let map = null;
+let mapLayers = [];
+let utilityChart = null;
+let logCount = 0;
+
+// ===================== 登录/注册 =====================
+function switchTab(tab) {
+    document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+}
+
+async function doLogin() {
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+    const errBox = document.getElementById('login-error');
+    errBox.style.display = 'none';
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('user-display').textContent = user;
+            document.getElementById('user-avatar').textContent = user.charAt(0).toUpperCase();
+            initMap();
+            pollLogs();
+        } else {
+            errBox.textContent = data.message || '用户名或密码错误';
+            errBox.style.display = 'block';
+        }
+    } catch(e) {
+        errBox.textContent = '服务未启动，请稍后重试';
+        errBox.style.display = 'block';
+    }
+}
+
+async function doRegister() {
+    const user = document.getElementById('reg-user').value.trim();
+    const pass = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    const errBox = document.getElementById('reg-error');
+    errBox.style.display = 'none';
+    if (pass !== pass2) {
+        errBox.textContent = '两次密码不一致';
+        errBox.style.display = 'block';
+        return;
+    }
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: user, password: pass})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('user-display').textContent = user;
+            document.getElementById('user-avatar').textContent = user.charAt(0).toUpperCase();
+            initMap();
+            pollLogs();
+        } else {
+            errBox.textContent = data.message || '注册失败';
+            errBox.style.display = 'block';
+        }
+    } catch(e) {
+        errBox.textContent = '服务未启动，请稍后重试';
+        errBox.style.display = 'block';
+    }
+}
+
+async function doLogout() {
+    try { await fetch('/api/logout', {method: 'POST'}); } catch(e) {}
+    location.reload();
+}
+
+// ===================== 场景 =====================
+async function loadScenario(name) {
+    try {
+        const res = await fetch('/api/scenarios');
+        const data = await res.json();
+        const s = data.scenarios[name];
+        if (s) {
+            document.getElementById('news-text').value = s.news;
+            document.getElementById('task-origin').value = s.task.origin;
+            document.getElementById('task-dest').value = s.task.destination;
+            document.getElementById('task-teu').value = s.task.teu;
+            document.getElementById('task-tv').value = s.task.time_value;
+        }
+    } catch(e) { alert('加载失败: ' + e.message); }
+}
+
+function showLoading(text, sub) {
+    document.getElementById('loading-text').textContent = text || '处理中...';
+    document.getElementById('loading-sub').textContent = sub || '请稍候';
+    document.getElementById('loading').style.display = 'flex';
+}
+function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+
+// ===================== 阶段一 =====================
+async function runStage1() {
+    const news = document.getElementById('news-text').value;
+    if (!news || news.trim().length < 10) {
+        alert('请输入有效的新闻文本（至少10字符）');
+        return;
+    }
+    showLoading('调用Qwen-Plus大模型', '正在进行语义降维...');
+    setStage(1, '运行中', 'active');
+    try {
+        const res = await fetch('/api/stage1', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({news_text: news})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            displayOracle(data.data, data.elapsed);
+            updateStats(data.data);
+            setStage(1, '完成', 'done');
+        } else {
+            alert(data.message);
+            setStage(1, '失败', '');
+        }
+    } catch(e) {
+        alert('请求失败: ' + e.message);
+        setStage(1, '失败', '');
+    }
+    hideLoading();
+}
+
+function displayOracle(d, elapsed) {
+    document.getElementById('oracle-result').innerHTML = `
+        <div class="data-grid fade-in">
+            <div class="data-card"><div class="label">Crisis UUID</div><div class="value" style="color:#00d4ff;font-size:13px;">${d.crisis_uuid}</div></div>
+            <div class="data-card"><div class="label">阻断靶点</div><div class="value" style="color:#ff4757;">${d.disrupted_node}</div></div>
+            <div class="data-card"><div class="label">封锁天数</div><div class="value" style="color:#ffaa00;">${d.estimated_blockade_days} 天</div></div>
+            <div class="data-card"><div class="label">恐慌指数</div><div class="value" style="color:#ff4757;">${d.market_panic_index}</div></div>
+            <div class="data-card"><div class="label">货物紧急度</div><div class="value" style="color:#ffaa00;">${d.cargo_urgency}</div></div>
+            <div class="data-card"><div class="label">LLM耗时</div><div class="value" style="color:#00ff88;">${elapsed.toFixed(2)}s</div></div>
+        </div>
+    `;
+}
+
+function updateStats(d) {
+    document.getElementById('stat-uuid').textContent = d.crisis_uuid;
+    document.getElementById('stat-node').textContent = d.disrupted_node;
+    document.getElementById('stat-panic').textContent = d.market_panic_index;
+}
+
+// ===================== 阶段二 =====================
+async function runStage2() {
+    const task = {
+        origin: document.getElementById('task-origin').value,
+        destination: document.getElementById('task-dest').value,
+        teu: parseInt(document.getElementById('task-teu').value),
+        time_value: parseFloat(document.getElementById('task-tv').value)
+    };
+    showLoading('多智能体博弈计算', '帕累托综合效用寻优中...');
+    setStage(2, '运行中', 'active');
+    try {
+        const res = await fetch('/api/stage2', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(task)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            displayGame(data);
+            document.getElementById('stat-winner').textContent = data.winning_bid.strategy_name.substring(0, 8);
+            setStage(2, '完成', 'done');
+        } else {
+            alert(data.message);
+            setStage(2, '失败', '');
+        }
+    } catch(e) {
+        alert('请求失败: ' + e.message);
+        setStage(2, '失败', '');
+    }
+    hideLoading();
+}
+
+function displayGame(data) {
+    const bids = data.bids;
+    const winner = data.winning_bid;
+    let html = '<div class="bid-comparison fade-in">';
+    bids.forEach(b => {
+        const isWin = b.agent_id === winner.agent_id;
+        html += `
+            <div class="bid-card ${isWin ? 'winner' : ''}">
+                <div class="agent-name">${isWin ? '✅' : '❌'} ${b.agent_id}
+                    <span class="badge ${isWin ? 'badge-win' : 'badge-lose'}">${isWin ? '中标' : '淘汰'}</span>
+                </div>
+                <div class="strategy">${b.strategy_name}</div>
+                <div class="price">$${b.quoted_cost_usd}</div>
+                <div class="meta">
+                    <span>耗时 ${b.estimated_days} 天</span>
+                    <span>运力 ${b.capacity_status}</span>
+                </div>
+                <div class="formula">${b.pricing_model}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    const winUtil = data.utility_analysis.find(u => u.agent_id === winner.agent_id);
+    html += `
+        <div class="winner-banner fade-in">
+            <div class="info">
+                <div class="title">帕累托最优决策</div>
+                <div class="name">${winner.strategy_name}</div>
+            </div>
+            <div class="saving">
+                <div class="saving-value">$${data.saving}</div>
+                <div class="saving-label">节省 ${data.saving_rate}%</div>
+            </div>
+        </div>
+    `;
+    document.getElementById('game-result').innerHTML = html;
+    updateChart(data.utility_analysis);
+}
+
+// ===================== 阶段三 =====================
+async function runStage3() {
+    showLoading('PBFT拜占庭容错共识', '多节点签名聚合中...');
+    setStage(3, '运行中', 'active');
+    try {
+        const res = await fetch('/api/stage3', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            displayConsensus(data.consensus);
+            setStage(3, '完成', 'done');
+        } else {
+            alert(data.message);
+            setStage(3, '失败', '');
+        }
+    } catch(e) {
+        alert('请求失败: ' + e.message);
+        setStage(3, '失败', '');
+    }
+    hideLoading();
+}
+
+function displayConsensus(c) {
+    const nodesHtml = c.nodes.map(n => `<span class="badge" style="background:rgba(0,212,255,0.15);color:#00d4ff;margin:2px;">${n}</span>`).join('');
+    document.getElementById('consensus-result').innerHTML = `
+        <div class="data-grid fade-in">
+            <div class="data-card"><div class="label">共识状态</div><div class="value" style="color:#00ff88;">${c.status}</div></div>
+            <div class="data-card"><div class="label">区块哈希</div><div class="value" style="color:#00d4ff;font-size:11px;word-break:break-all;">${c.block_hash}</div></div>
+            <div class="data-card"><div class="label">中标策略</div><div class="value" style="font-size:12px;">${c.winning_strategy}</div></div>
+            <div class="data-card"><div class="label">签名节点</div><div class="value">${c.signatures} 个</div></div>
+        </div>
+        <div class="data-card" style="margin-top:12px;">
+            <div class="label">参与共识节点</div>
+            <div style="margin-top:6px;">${nodesHtml}</div>
+        </div>
+        <div class="data-card" style="margin-top:8px;">
+            <div class="label">容错能力</div>
+            <div class="value" style="font-size:12px;color:#ffaa00;">${c.fault_tolerance}</div>
+        </div>
+    `;
+}
+
+// ===================== 阶段四 =====================
+async function runStage4() {
+    showLoading('数字孪生沙盘渲染', '加载全球地图数据...');
+    setStage(4, '运行中', 'active');
+    try {
+        const res = await fetch('/api/stage4', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            drawMap(data.viz_data);
+            setStage(4, '完成', 'done');
+        } else {
+            alert(data.message);
+            setStage(4, '失败', '');
+        }
+    } catch(e) {
+        alert('请求失败: ' + e.message);
+        setStage(4, '失败', '');
+    }
+    hideLoading();
+}
+
+// ===================== 一键运行 =====================
+async function runAll() {
+    await runStage1();
+    if (document.getElementById('status-1').textContent.includes('完成')) {
+        await new Promise(r => setTimeout(r, 400));
+        await runStage2();
+    } else return;
+    if (document.getElementById('status-2').textContent.includes('完成')) {
+        await new Promise(r => setTimeout(r, 400));
+        await runStage3();
+    } else return;
+    if (document.getElementById('status-3').textContent.includes('完成')) {
+        await new Promise(r => setTimeout(r, 400));
+        await runStage4();
+    }
+}
+
+async function resetSystem() {
+    try { await fetch('/api/reset', {method: 'POST'}); } catch(e) {}
+    for (let i = 1; i <= 4; i++) setStage(i, '待执行', '');
+    document.getElementById('oracle-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-text">运行阶段一后显示LLM提取的结构化参数</div></div>';
+    document.getElementById('game-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚔️</div><div class="empty-state-text">运行阶段二后显示承运商报价与决策</div></div>';
+    document.getElementById('consensus-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔗</div><div class="empty-state-text">运行阶段三后显示共识结果与区块哈希</div></div>';
+    document.getElementById('stat-uuid').textContent = '—';
+    document.getElementById('stat-node').textContent = '—';
+    document.getElementById('stat-panic').textContent = '—';
+    document.getElementById('stat-winner').textContent = '—';
+    document.getElementById('log-panel').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-text">等待系统运行...</div></div>';
+    logCount = 0;
+    document.getElementById('log-count').textContent = '0 条';
+    if (utilityChart) { utilityChart.destroy(); utilityChart = null; }
+    clearMap();
+}
+
+function setStage(num, text, cls) {
+    document.getElementById('status-' + num).textContent = text;
+    const card = document.getElementById('card-' + num);
+    card.classList.remove('active', 'done');
+    if (cls) card.classList.add(cls);
+}
+
+// ===================== 日志 =====================
+async function pollLogs() {
+    try {
+        const res = await fetch('/api/status');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.logs && data.logs.length > 0) {
+                const panel = document.getElementById('log-panel');
+                if (data.logs.length !== logCount) {
+                    panel.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.className = 'log-line';
+                        div.innerHTML = `<span class="log-time">[${log.time}]</span> <span class="log-${log.level}">${log.message}</span>`;
+                        panel.appendChild(div);
+                    });
+                    panel.scrollTop = panel.scrollHeight;
+                    logCount = data.logs.length;
+                    document.getElementById('log-count').textContent = logCount + ' 条';
+                }
+            }
+        }
+    } catch(e) {}
+    setTimeout(pollLogs, 1500);
+}
+
+// ===================== 地图 =====================
+function initMap() {
+    if (map) return;
+    map = L.map('map', {worldCopyJump: true, zoomControl: true, attributionControl: false}).setView([30, 30], 2);
+
+    // 使用高德地图瓦片（国内可访问）+ OpenStreetMap备选
+    const amapLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+        subdomains: ['1', '2', '3', '4'],
+        maxZoom: 18,
+        crossOrigin: true
+    });
+
+    // 深色地图样式（使用CartoDB Vector，备用ESRI）
+    const darkLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16,
+        attribution: 'Esri'
+    });
+
+    // 优先使用ESRI深色底图
+    darkLayer.addTo(map);
+
+    // 添加自定义图层控制
+    const baseLayers = {
+        "深色地图": darkLayer,
+        "标准地图": amapLayer
+    };
+    L.control.layers(baseLayers, {}, {position: 'topright', collapsed: true}).addTo(map);
+}
+
+function clearMap() {
+    mapLayers.forEach(l => map.removeLayer(l));
+    mapLayers = [];
+}
+
+function drawMap(viz) {
+    clearMap();
+
+    // 城市地理信息库（用于 hover 展示详细信息）
+    const CITY_INFO = {
+        '上海': {country: '中国', role: '全球最大集装箱港', region: '东亚·太平洋西岸'},
+        '深圳': {country: '中国', role: '华南主枢纽港', region: '东亚·太平洋西岸'},
+        '新加坡': {country: '新加坡', role: '全球第二大集装箱港', region: '东南亚·马六甲咽喉'},
+        '鹿特丹': {country: '荷兰', role: '欧洲第一海港', region: '西欧·莱茵河入海口'},
+        '洛杉矶': {country: '美国', role: '北美西海岸主枢纽', region: '北美·太平洋东岸'},
+        '迪拜': {country: '阿联酋', role: '中东最大转运港', region: '中东·波斯湾入口'},
+        '苏伊士': {country: '埃及', role: '全球海运干线咽喉', region: '北非·苏伊士地峡'},
+        '巴拿马': {country: '巴拿马', role: '美洲东西岸捷径', region: '中美洲·巴拿马地峡'},
+        '马六甲': {country: '马来西亚/印尼', role: '亚洲海运生命线', region: '东南亚·马六甲海峡'},
+        '霍尔木兹': {country: '伊朗/阿曼', role: '全球石油咽喉', region: '中东·波斯湾出口'},
+        '好望角': {country: '南非', role: '非洲南端绕航点', region: '南非·大西洋与印度洋交汇'},
+        '台湾海峡': {country: '中国', role: '东亚南北海运要道', region: '东亚·西太平洋'}
+    };
+
+    function getCityInfo(name) {
+        for (const key in CITY_INFO) {
+            if (name.includes(key) || name === key) return CITY_INFO[key];
+        }
+        return null;
+    }
+
+    function formatTooltip(name, role, info) {
+        if (!info) return `<div style="font-size:11px;"><b>${name}</b><br><span style="color:#8a99b8;">${role}</span></div>`;
+        return `<div style="font-size:11px;line-height:1.6;min-width:140px;">
+            <div style="font-size:12px;font-weight:700;color:#00d4ff;border-bottom:1px solid rgba(0,212,255,0.3);padding-bottom:4px;margin-bottom:4px;">${name}</div>
+            <div><span style="color:#8a99b8;">国家/地区：</span><span style="color:#e8eef8;">${info.country}</span></div>
+            <div><span style="color:#8a99b8;">角色：</span><span style="color:#e8eef8;">${info.role}</span></div>
+            <div><span style="color:#8a99b8;">区域：</span><span style="color:#e8eef8;">${info.region}</span></div>
+            <div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(100,130,180,0.15);color:#00ff88;">${role}</div>
+        </div>`;
+    }
+
+    const disruptedIcon = L.divIcon({
+        className: '', html: '<div style="width:28px;height:28px;background:#ff4757;border-radius:50%;border:3px solid #fff;box-shadow:0 0 25px #ff4757;animation:pulse 1s infinite;"></div>',
+        iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+    const originIcon = L.divIcon({
+        className: '', html: '<div style="width:20px;height:20px;background:#00d4ff;border-radius:50%;border:2px solid #fff;box-shadow:0 0 15px #00d4ff;"></div>',
+        iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+    const destIcon = L.divIcon({
+        className: '', html: '<div style="width:20px;height:20px;background:#00ff88;border-radius:50%;border:2px solid #fff;box-shadow:0 0 15px #00ff88;"></div>',
+        iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+
+    // 阻断节点（鼠标 hover 即显示信息）
+    mapLayers.push(L.marker(viz.disrupted_coords, {icon: disruptedIcon}).addTo(map)
+        .bindTooltip(formatTooltip(viz.disrupted_node, '⚠️ 阻断节点（事件发生地）', getCityInfo(viz.disrupted_node)), {permanent: false, direction: 'top', offset: [0, -10], className: 'map-tip'})
+        .bindPopup('<b>⚠️ 阻断节点</b><br>' + viz.disrupted_node));
+
+    // 发货地
+    mapLayers.push(L.marker(viz.origin_coords, {icon: originIcon}).addTo(map)
+        .bindTooltip(formatTooltip(viz.origin, '📦 发货地（运输起点）', getCityInfo(viz.origin)), {permanent: false, direction: 'top', offset: [0, -8], className: 'map-tip'})
+        .bindPopup('<b>📦 发货地</b><br>' + viz.origin));
+
+    // 目的地
+    mapLayers.push(L.marker(viz.dest_coords, {icon: destIcon}).addTo(map)
+        .bindTooltip(formatTooltip(viz.destination, '🏁 目的地（运输终点）', getCityInfo(viz.destination)), {permanent: false, direction: 'top', offset: [0, -8], className: 'map-tip'})
+        .bindPopup('<b>🏁 目的地</b><br>' + viz.destination));
+
+    // 苏伊士原始航线（废弃，红色虚线）
+    const suezRoute = [viz.origin_coords, [24.5, 36.0], viz.disrupted_coords, [34.0, 28.0], viz.dest_coords];
+    mapLayers.push(L.polyline(suezRoute, {color: '#ff4757', weight: 2, opacity: 0.5, dashArray: '8,6'}).addTo(map)
+        .bindTooltip('❌ 原方案：苏伊士运河干线（已阻断废弃）', {sticky: true, className: 'map-tip'}));
+
+    // 好望角绕行
+    const capeRoute = [viz.origin_coords, [5.0, 100.0], [-10.0, 80.0], viz.cape_coords, [-20.0, 10.0], [40.0, -10.0], viz.dest_coords];
+    const isOceanWin = viz.winning_agent.includes('Ocean');
+    mapLayers.push(L.polyline(capeRoute, {
+        color: isOceanWin ? '#00ff88' : '#ffaa00',
+        weight: isOceanWin ? 4 : 2.5, opacity: 0.85, dashArray: '12,4'
+    }).addTo(map)
+      .bindTooltip((isOceanWin ? '✅ 中标·' : '🔄 备选·') + '海运绕行好望角航线', {sticky: true, className: 'map-tip'})
+      .bindPopup(isOceanWin ? '✅ 海运绕行好望角（中标）' : '海运绕行好望角（淘汰）'));
+
+    // 中欧班列
+    const isRailWin = viz.winning_agent.includes('Rail');
+    mapLayers.push(L.polyline(viz.rail_route, {
+        color: isRailWin ? '#00ff88' : '#ffaa00',
+        weight: isRailWin ? 4 : 2.5, opacity: 0.85, dashArray: '12,4'
+    }).addTo(map)
+      .bindTooltip((isRailWin ? '✅ 中标·' : '🔄 备选·') + '中欧班列铁路线', {sticky: true, className: 'map-tip'})
+      .bindPopup(isRailWin ? '✅ 中欧班列铁路（中标）' : '中欧班列铁路（淘汰）'));
+
+    // 显示图例
+    document.getElementById('map-legend').style.display = 'block';
+
+    map.fitBounds(L.latLngBounds([viz.origin_coords, viz.dest_coords, viz.disrupted_coords, viz.cape_coords]), {padding: [60, 60]});
+}
+
+// ===================== 图表 =====================
+function updateChart(utility) {
+    const ctx = document.getElementById('utility-chart').getContext('2d');
+    if (utilityChart) utilityChart.destroy();
+    utilityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: utility.map(u => u.strategy),
+            datasets: [
+                {label: '报价成本 (USD)', data: utility.map(u => u.quoted_cost), backgroundColor: 'rgba(0, 212, 255, 0.7)', borderColor: '#00d4ff', borderWidth: 1, borderRadius: 4},
+                {label: '时间成本 (USD)', data: utility.map(u => u.time_cost), backgroundColor: 'rgba(255, 170, 0, 0.7)', borderColor: '#ffaa00', borderWidth: 1, borderRadius: 4},
+                {label: '综合效用 (USD)', data: utility.map(u => u.total_utility), backgroundColor: 'rgba(0, 255, 136, 0.7)', borderColor: '#00ff88', borderWidth: 1, borderRadius: 4}
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: {labels: {color: '#e8eef8', font: {size: 12}}, position: 'top'},
+                tooltip: {backgroundColor: 'rgba(5,8,20,0.95)', titleColor: '#00d4ff', bodyColor: '#e8eef8', borderColor: '#00d4ff', borderWidth: 1}
+            },
+            scales: {
+                x: {ticks: {color: '#8a99b8', font: {size: 11}}, grid: {color: 'rgba(100,130,180,0.08)'}},
+                y: {ticks: {color: '#8a99b8'}, grid: {color: 'rgba(100,130,180,0.08)'}, title: {display: true, text: 'USD', color: '#4a5568'}}
+            }
+        }
+    });
+}
+
+document.getElementById('login-pass').addEventListener('keypress', e => {
+    if (e.key === 'Enter') doLogin();
+});
+document.getElementById('login-user').addEventListener('keypress', e => {
+    if (e.key === 'Enter') doLogin();
+});
+document.getElementById('reg-pass2').addEventListener('keypress', e => {
+    if (e.key === 'Enter') doRegister();
+});
+document.getElementById('reg-user').addEventListener('keypress', e => {
+    if (e.key === 'Enter') document.getElementById('reg-pass').focus();
+});
+
+// 顶部导航锚点滚动
+function scrollToId(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+    // 高亮当前导航
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
+}
+</script>
+
+<script>
+// ============================================================
+// 静态版后端模拟层（GitHub Pages 用，无 Flask 依赖）
+// ============================================================
+
+// ---- 配置 ----
+const QWEN_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const QWEN_API_KEY = 'sk-ac2fe38936c040e788b5a287225ad988';
+const QWEN_MODEL   = 'qwen-plus';
+
+// ---- 全局状态（替代 Flask _GLOBAL_STORE）----
+const appState = {
+    stage: 'idle',
+    oracle_data: null,
+    task_data: null,
+    bids: [],
+    winning_bid: null,
+    consensus_result: null,
+    logs: []
+};
+
+// ---- SHA-256（Web Crypto API）----
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---- 本地日志管理 ----
+function addLog(message, level = 'info') {
+    const now = new Date();
+    const timestamp = now.toTimeString().substring(0, 8);
+    appState.logs.push({time: timestamp, message: message, level: level});
+    if (appState.logs.length > 100) appState.logs = appState.logs.slice(-100);
+    updateLogPanel();
+}
+
+function updateLogPanel() {
+    const panel = document.getElementById('log-panel');
+    if (!panel) return;
+    panel.innerHTML = '';
+    appState.logs.slice(-30).forEach(log => {
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        div.innerHTML = `<span class="log-time">[${log.time}]</span> <span class="log-${log.level}">${log.message}</span>`;
+        panel.appendChild(div);
+    });
+    panel.scrollTop = panel.scrollHeight;
+    const cnt = document.getElementById('log-count');
+    if (cnt) cnt.textContent = appState.logs.length + ' 条';
+}
+
+// ---- 节点坐标库（从 app.py 移植）----
+const NODE_COORDS = {
+    '苏伊士运河': [29.9290, 32.5595], 'suez': [29.9290, 32.5595],
+    '巴拿马运河': [9.0828, -79.6802], 'panama': [9.0828, -79.6802],
+    '马六甲海峡': [2.5000, 101.4167], 'malacca': [2.5000, 101.4167],
+    '霍尔木兹海峡': [26.5667, 56.2500], 'hormuz': [26.5667, 56.2500],
+    '好望角': [-34.3568, 18.4740], 'cape of good hope': [-34.3568, 18.4740],
+    '上海': [31.2304, 121.4737], 'shanghai': [31.2304, 121.4737],
+    '鹿特丹': [51.9244, 4.4777], 'rotterdam': [51.9244, 4.4777],
+    '新加坡': [1.3521, 103.8198], 'singapore': [1.3521, 103.8198],
+    '汉堡': [53.5511, 9.9937], 'hamburg': [53.5511, 9.9937],
+    '洛杉矶': [33.7701, -118.1937], 'los angeles': [33.7701, -118.1937],
+    '西安': [34.3416, 108.9398], '莫斯科': [55.7558, 37.6173],
+    '华沙': [52.2297, 21.0122], '柏林': [52.5200, 13.4050],
+    '深圳': [22.5431, 114.0579], '迪拜': [25.2048, 55.2708]
+};
+
+// ---- 预设场景（从 app.py 移植）----
+const PRESET_SCENARIOS = {
+    suez: {
+        title: '苏伊士运河阻断（技术方案文档示例）',
+        news: `【全球供应链最高级别预警】2026年最新快讯：受中东地缘冲突黑天鹅事件爆发影响，苏伊士运河周边海域遭遇严重物理封锁。国际海事组织（IMO）刚刚宣布，该干线航道进入无限期双向熔断状态。据伦敦保险市场与航运巨头初步联合评估，此次物理断链将至少持续 25 天。受此阻断恐慌影响，全球海运运力出现瞬时真空，欧洲制造基地的关键零部件库存面临全线断供危机。目前，大量被阻断的海运货源正恐慌性涌向亚欧大陆桥，导致中欧班列近期舱位期货价格单日暴涨，市场避险情绪已达到极值。`,
+        task: {origin: '上海', destination: '鹿特丹', teu: 100, time_value: 85}
+    },
+    panama: {
+        title: '巴拿马运河干旱（替代场景）',
+        news: `【全球航运紧急预警】受持续厄尔尼诺现象影响，巴拿马运河加通湖水位降至历史最低点。巴拿马运河管理局宣布，即日起将每日通行船舶数量从38艘削减至22艘，单船最大吃水深度限制在13.4米，预计该限行措施将持续至少40天。大量美东至亚洲航线船舶被迫绕行麦哲伦海峡，全球集装箱运力遭受严重冲击，亚洲至美东航线运价单周暴涨65%，市场恐慌情绪持续蔓延。`,
+        task: {origin: '洛杉矶', destination: '上海', teu: 80, time_value: 90}
+    },
+    malacca: {
+        title: '马六甲海峡海盗危机（替代场景）',
+        news: `【东南亚航运安全红色警报】多国海事协调中心今日发布紧急通告：马六甲海峡近期遭遇近年来最严重的武装海盗袭击浪潮，过去7天内已发生12起船舶被劫持事件。马来西亚海军与印尼海军联合巡逻未能有效遏制态势，多家国际保险公司已将该海域风险等级提升至最高级。预计海峡安全通航将中断至少15天，亚洲至欧洲航线面临重大不确定性，市场恐慌指数飙升至0.78。`,
+        task: {origin: '新加坡', destination: '鹿特丹', teu: 120, time_value: 80}
+    },
+    hormuz: {
+        title: '霍尔木兹海峡军事封锁（地缘冲突场景）',
+        news: `【中东地缘危机最高级警报】霍尔木兹海峡遭遇突发性军事封锁，伊朗革命卫队宣布对海峡实施全面禁航。全球约20%的石油运输与15%的集装箱贸易被迫中断。国际海事组织紧急召开会议，评估此次封锁至少持续20天。波斯湾至东亚的能源运输链路瞬间熔断，亚洲至欧洲替代航线运力瞬间被抢订一空，中欧班列舱位报价单日暴涨120%，全球供应链避险情绪达到历史峰值。`,
+        task: {origin: '迪拜', destination: '上海', teu: 90, time_value: 95}
+    },
+    cape: {
+        title: '好望角特大风暴（极端气象场景）',
+        news: `【南大西洋极端气象预警】南非气象局发布最高级别风暴警报：好望角海域遭遇50年一遇的特大温带气旋，持续风力达12级以上，浪高超过14米。南非海事局紧急下令，所有计划绕行好望角的远洋船舶必须在开普敦港避风至少18天。当前正值苏伊士运河绕行高峰期，大量船舶被迫在南非外海长时间滞留，全球海运运力遭受二次冲击，亚欧航线运价再次暴涨45%，市场恐慌指数飙升至0.82。`,
+        task: {origin: '上海', destination: '鹿特丹', teu: 110, time_value: 88}
+    },
+    taiwan: {
+        title: '台湾海峡地震带异动（地质灾害场景）',
+        news: `【西太平洋地质灾害红色预警】中国地震局与美国地质调查局联合发布紧急通告：台湾海峡东部海域出现罕见的7.5级强震及持续余震群，海底电缆受损严重，引发局部海啸预警。海峡两岸海事部门紧急暂停该海域所有船舶通行，预计通航中断至少12天。东亚至北美西海岸的主要航线被迫绕行太平洋中部，运力损失达30%，亚洲电子产业链关键零部件运输受阻，全球半导体供应链避险情绪急速攀升。`,
+        task: {origin: '深圳', destination: '洛杉矶', teu: 100, time_value: 92}
+    }
+};
+
+// ============================================================
+// 替换函数实现（覆盖原 fetch 调用）
+// ============================================================
+
+// ---- 登录（客户端校验）----
+async function doLogin() {
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+    const errBox = document.getElementById('login-error');
+    errBox.style.display = 'none';
+    if (user === 'admin' && pass === 'linkyi2026') {
+        sessionStorage.setItem('loggedIn', 'true');
+        sessionStorage.setItem('user', user);
+        document.getElementById('login-page').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        document.getElementById('user-display').textContent = user;
+        document.getElementById('user-avatar').textContent = user.charAt(0).toUpperCase();
+        initMap();
+        pollLogs();
+        addLog('✅ 用户 ' + user + ' 登录成功（静态版）', 'success');
+    } else {
+        errBox.textContent = '用户名或密码错误（演示账号：admin / linkyi2026）';
+        errBox.style.display = 'block';
+    }
+}
+
+// ---- 注册（任意账号，本地存储）----
+async function doRegister() {
+    const user = document.getElementById('reg-user').value.trim();
+    const pass = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    const errBox = document.getElementById('reg-error');
+    errBox.style.display = 'none';
+    if (pass !== pass2) {
+        errBox.textContent = '两次密码不一致';
+        errBox.style.display = 'block';
+        return;
+    }
+    if (user.length < 3 || pass.length < 6) {
+        errBox.textContent = '用户名至少3位，密码至少6位';
+        errBox.style.display = 'block';
+        return;
+    }
+    sessionStorage.setItem('loggedIn', 'true');
+    sessionStorage.setItem('user', user);
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    document.getElementById('user-display').textContent = user;
+    document.getElementById('user-avatar').textContent = user.charAt(0).toUpperCase();
+    initMap();
+    pollLogs();
+    addLog('✅ 新用户 ' + user + ' 注册并登录成功', 'success');
+}
+
+// ---- 退出 ----
+async function doLogout() {
+    sessionStorage.clear();
+    location.reload();
+}
+
+// ---- 加载场景 ----
+async function loadScenario(name) {
+    const s = PRESET_SCENARIOS[name];
+    if (s) {
+        document.getElementById('news-text').value = s.news;
+        document.getElementById('task-origin').value = s.task.origin;
+        document.getElementById('task-dest').value = s.task.destination;
+        document.getElementById('task-teu').value = s.task.teu;
+        document.getElementById('task-tv').value = s.task.time_value;
+        addLog('📋 已加载预设场景: ' + s.title, 'info');
+    }
+}
+
+// ---- 阶段一：直接调用 Qwen API ----
+async function runStage1() {
+    const news = document.getElementById('news-text').value;
+    if (!news || news.trim().length < 10) {
+        alert('请输入有效的新闻文本（至少10字符）');
+        return;
+    }
+    showLoading('调用Qwen-Plus大模型', '正在进行语义降维...');
+    setStage(1, '运行中', 'active');
+    try {
+        const startTime = performance.now();
+        addLog('🌐 [阶段一] 全局态势预言机引擎已激活', 'success');
+        addLog('📡 外部世界探针正在扫描全球宏观态势节点...', 'info');
+        addLog('📄 接收到新闻文本流 (' + news.length + ' 字符)，提交至Qwen-Plus大模型...', 'info');
+
+        const systemPrompt = `你是一个负责驱动"多智能体非合作博弈供应链系统"的全局预言机。
+请将外部新闻转化为纯 JSON 格式协议包。严禁输出任何解释性文字或代码块标记。
+
+输出必须严格遵守以下键值结构：
+{
+    "crisis_uuid": "生成一个全大写事件哈代号，如 SUEZ_BLK_9A2F，用于共识溯源",
+    "disrupted_node": "精准提取陷入瘫痪的物理咽喉节点（如 苏伊士运河、巴拿马运河、马六甲海峡等）",
+    "estimated_blockade_days": 25,
+    "market_panic_index": 0.95,
+    "cargo_urgency": "HIGH"
+}`;
+
+        const response = await fetch(QWEN_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + QWEN_API_KEY
+            },
+            body: JSON.stringify({
+                model: QWEN_MODEL,
+                messages: [
+                    {role: 'system', content: systemPrompt},
+                    {role: 'user', content: '请生成预言机协议包，输入流：\n' + news}
+                ],
+                temperature: 0.01
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Qwen API 返回 ' + response.status + ': ' + (await response.text()).substring(0, 200));
+        }
+
+        const result = await response.json();
+        let rawOutput = result.choices[0].message.content.trim();
+        // 清理可能的代码块标记
+        rawOutput = rawOutput.replace(/^```(json)?\s*/i, '').replace(/\s*```$/, '');
+        const parsedData = JSON.parse(rawOutput);
+        parsedData.oracle_timestamp = new Date().toISOString();
+        parsedData.news_text = news.substring(0, 200) + (news.length > 200 ? '...' : '');
+
+        const elapsed = (performance.now() - startTime) / 1000;
+        addLog('🧠 Qwen-Plus 推理完成，耗时 ' + elapsed.toFixed(2) + ' 秒', 'success');
+        addLog('✅ 预言机协议包生成成功!', 'success');
+        addLog('   └─ Crisis UUID: ' + parsedData.crisis_uuid, 'info');
+        addLog('   └─ 阻断靶点: ' + parsedData.disrupted_node, 'info');
+        addLog('   └─ 封锁天数: ' + parsedData.estimated_blockade_days + ' 天', 'info');
+        addLog('   └─ 恐慌指数: ' + parsedData.market_panic_index, 'warning');
+
+        appState.oracle_data = parsedData;
+        appState.stage = 'stage1_complete';
+
+        displayOracle(parsedData, elapsed);
+        updateStats(parsedData);
+        setStage(1, '完成', 'done');
+    } catch(e) {
+        addLog('❌ 阶段一执行失败: ' + e.message, 'error');
+        alert('请求失败: ' + e.message);
+        setStage(1, '失败', '');
+    }
+    hideLoading();
+}
+
+// ---- 阶段二：多智能体非合作博弈（JS 实现）----
+async function runStage2() {
+    const task = {
+        origin: document.getElementById('task-origin').value,
+        destination: document.getElementById('task-dest').value,
+        teu: parseInt(document.getElementById('task-teu').value),
+        time_value_per_day: parseFloat(document.getElementById('task-tv').value)
+    };
+    showLoading('多智能体博弈计算', '帕累托综合效用寻优中...');
+    setStage(2, '运行中', 'active');
+    try {
+        if (!appState.oracle_data) {
+            alert('请先运行阶段一（预言机）');
+            setStage(2, '失败', '');
+            hideLoading();
+            return;
+        }
+
+        const rfp = appState.oracle_data;
+        const panicIndex = parseFloat(rfp.market_panic_index) || 0;
+        appState.task_data = task;
+
+        addLog('🧠 [阶段二] 多智能体非合作博弈引擎激活', 'success');
+        addLog('📦 货主Agent发布 RFP: ' + task.teu + ' TEU | ' + task.origin + ' → ' + task.destination, 'info');
+        addLog('   时间价值系数: $' + task.time_value_per_day + '/天', 'info');
+
+        // 海运 Agent 报价（线性恐慌溢价模型）
+        addLog('🌊 海运Agent (Ocean_Maersk_Node) 评估物理航道...', 'info');
+        const oceanBaseCost = 1600;
+        const fuelSurcharge = 300 * panicIndex;
+        const oceanCost = Math.round((oceanBaseCost + fuelSurcharge) * 100) / 100;
+        const oceanDays = 38;
+        const oceanBid = {
+            agent_id: 'Ocean_Maersk_Node',
+            strategy_name: '海运绕行干线 (好望角)',
+            quoted_cost_usd: oceanCost,
+            estimated_days: oceanDays,
+            capacity_status: 'SUFFICIENT',
+            pricing_model: '$' + oceanBaseCost + ' + $300×' + panicIndex + ' = $' + oceanCost
+        };
+        addLog('   报价: $' + oceanCost + '/TEU | ' + oceanDays + '天 | 运力充足', 'warning');
+
+        // 铁路 Agent 报价（非线性指数动态定价模型）
+        addLog('🚂 铁路Agent (Rail_CRExpress_Node) 触发非线性定价模型...', 'info');
+        const railBase = 2500;
+        const panicMultiplier = Math.exp(panicIndex) - 0.5;
+        const maxCapacity = 200;
+        const capacityPenalty = task.teu > maxCapacity ? 1.5 : 1.0;
+        const railCost = Math.round(railBase * panicMultiplier * capacityPenalty * 100) / 100;
+        const railDays = 16;
+        const railBid = {
+            agent_id: 'Rail_CRExpress_Node',
+            strategy_name: '中欧班列极速干线',
+            quoted_cost_usd: railCost,
+            estimated_days: railDays,
+            capacity_status: task.teu >= maxCapacity * 0.8 ? 'TIGHT' : 'NORMAL',
+            pricing_model: '$' + railBase + ' × (e^' + panicIndex + ' - 0.5) × ' + capacityPenalty + ' = $' + railCost
+        };
+        addLog('   恐慌乘数: e^' + panicIndex + ' - 0.5 = ' + panicMultiplier.toFixed(4), 'info');
+        addLog('   报价: $' + railCost + '/TEU | ' + railDays + '天 | 运力' + railBid.capacity_status, 'warning');
+
+        const bids = [oceanBid, railBid];
+        appState.bids = bids;
+
+        // 帕累托综合效用寻优
+        addLog('📊 货主Agent执行帕累托综合效用寻优...', 'info');
+        const timeValue = task.time_value_per_day;
+        const utilityResults = bids.map(bid => {
+            const timeCost = bid.estimated_days * timeValue;
+            const utility = bid.quoted_cost_usd + timeCost;
+            addLog('   → ' + bid.strategy_name + ': $' + bid.quoted_cost_usd + ' + ' + bid.estimated_days + '×$' + timeValue + ' = $' + utility.toFixed(2), 'info');
+            return {
+                strategy: bid.strategy_name,
+                agent_id: bid.agent_id,
+                quoted_cost: bid.quoted_cost_usd,
+                time_cost: timeCost,
+                total_utility: Math.round(utility * 100) / 100,
+                estimated_days: bid.estimated_days
+            };
+        });
+
+        const bestBid = bids.reduce((a, b) =>
+            (a.quoted_cost_usd + a.estimated_days * timeValue) <= (b.quoted_cost_usd + b.estimated_days * timeValue) ? a : b
+        );
+        appState.winning_bid = bestBid;
+
+        const saving = Math.abs(utilityResults[0].total_utility - utilityResults[1].total_utility);
+        const maxUtil = Math.max.apply(null, utilityResults.map(u => u.total_utility));
+        const savingRate = Math.round((saving / maxUtil * 100) * 10) / 10;
+
+        addLog('✅ 最优决策: ' + bestBid.agent_id + ' (' + bestBid.strategy_name + ')', 'success');
+        addLog('   综合成本节省: $' + saving.toFixed(2) + ' (' + savingRate + '%)', 'success');
+
+        appState.stage = 'stage2_complete';
+
+        displayGame({
+            bids: bids,
+            winning_bid: bestBid,
+            utility_analysis: utilityResults,
+            saving: Math.round(saving * 100) / 100,
+            saving_rate: savingRate,
+            task_data: task
+        });
+        document.getElementById('stat-winner').textContent = bestBid.strategy_name.substring(0, 8);
+        setStage(2, '完成', 'done');
+    } catch(e) {
+        addLog('❌ 阶段二执行失败: ' + e.message, 'error');
+        alert('请求失败: ' + e.message);
+        setStage(2, '失败', '');
+    }
+    hideLoading();
+}
+
+// ---- 阶段三：PBFT 共识（JS 实现 + Web Crypto SHA-256）----
+async function runStage3() {
+    showLoading('PBFT拜占庭容错共识', '多节点签名聚合中...');
+    setStage(3, '运行中', 'active');
+    try {
+        if (!appState.winning_bid) {
+            alert('请先运行阶段二（博弈）');
+            setStage(3, '失败', '');
+            hideLoading();
+            return;
+        }
+
+        addLog('🔗 [阶段三] PBFT实用拜占庭容错共识机制激活', 'success');
+
+        const rfp = appState.oracle_data;
+        const winningBid = appState.winning_bid;
+        const contractPayload = rfp.crisis_uuid + '|' + winningBid.agent_id + '|' + winningBid.quoted_cost_usd + '|' + (Date.now() / 1000);
+
+        addLog('[Pre-Prepare] 货主Agent本地SHA-256签名并广播合约载荷', 'info');
+        await new Promise(r => setTimeout(r, 300));
+        addLog('[Prepare] 承运商节点核验合法性并追加独立签名', 'info');
+
+        const nodes = ['Cargo_Foxfox_EU', 'Ocean_Maersk_Node', 'Rail_CRExpress_Node', 'Regulator_Node'];
+        const signatures = {};
+        for (const node of nodes) {
+            const sig = await sha256(contractPayload + '_' + node);
+            signatures[node] = sig.substring(0, 32) + '...';
+            addLog('   ✓ ' + node + ' 签名完成: ' + sig.substring(0, 16) + '...', 'info');
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        await new Promise(r => setTimeout(r, 300));
+        addLog('[Commit] 收集到 2f+1 个有效签名 (f=1)，触发区块打包', 'info');
+
+        const blockHashRaw = await sha256(JSON.stringify(signatures));
+        const blockHash = '0x' + blockHashRaw.substring(0, 40).toUpperCase() + '...';
+
+        const consensusResult = {
+            status: 'CONSENSUS_REACHED',
+            block_hash: blockHash,
+            winning_strategy: winningBid.strategy_name,
+            winning_agent: winningBid.agent_id,
+            quoted_cost: winningBid.quoted_cost_usd,
+            timestamp: new Date().toISOString(),
+            signatures: Object.keys(signatures).length,
+            nodes: nodes,
+            fault_tolerance: '可容忍 1 个拜占庭恶意节点',
+            crisis_uuid: rfp.crisis_uuid
+        };
+
+        appState.consensus_result = consensusResult;
+        appState.stage = 'stage3_complete';
+
+        addLog('✅ PBFT共识达成! 区块哈希: ' + blockHash, 'success');
+        addLog('   签名节点: ' + Object.keys(signatures).length + '个 | 容错: f=1', 'info');
+
+        displayConsensus(consensusResult);
+        setStage(3, '完成', 'done');
+    } catch(e) {
+        addLog('❌ 阶段三执行失败: ' + e.message, 'error');
+        alert('请求失败: ' + e.message);
+        setStage(3, '失败', '');
+    }
+    hideLoading();
+}
+
+// ---- 阶段四：数字孪生可视化（本地数据）----
+async function runStage4() {
+    showLoading('数字孪生沙盘渲染', '加载全球地图数据...');
+    setStage(4, '运行中', 'active');
+    try {
+        if (!appState.consensus_result) {
+            alert('请先运行阶段三（PBFT共识）');
+            setStage(4, '失败', '');
+            hideLoading();
+            return;
+        }
+
+        addLog('🌍 [阶段四] 全球调度数字孪生可视化引擎激活', 'success');
+
+        const oracle = appState.oracle_data;
+        const winningBid = appState.winning_bid;
+        const task = appState.task_data || {origin: '上海', destination: '鹿特丹'};
+
+        const disruptedNode = oracle.disrupted_node || '苏伊士运河';
+        let disruptedCoords = NODE_COORDS[disruptedNode] || NODE_COORDS[disruptedNode.toLowerCase()];
+        if (!disruptedCoords) {
+            for (const key in NODE_COORDS) {
+                if (key.indexOf(disruptedNode) >= 0 || disruptedNode.indexOf(key) >= 0) {
+                    disruptedCoords = NODE_COORDS[key];
+                    break;
+                }
+            }
+        }
+        if (!disruptedCoords) {
+            disruptedCoords = [29.9290, 32.5595];
+            addLog("⚠️ 节点 '" + disruptedNode + "' 不在坐标库中，使用默认坐标", 'warning');
+        }
+
+        const origin = task.origin || '上海';
+        const destination = task.destination || '鹿特丹';
+        const originCoords = NODE_COORDS[origin] || NODE_COORDS[origin.toLowerCase()] || [31.2304, 121.4737];
+        const destCoords = NODE_COORDS[destination] || NODE_COORDS[destination.toLowerCase()] || [51.9244, 4.4777];
+        const capeCoords = NODE_COORDS['好望角'];
+
+        const vizData = {
+            disrupted_node: disruptedNode,
+            disrupted_coords: disruptedCoords,
+            origin: origin,
+            origin_coords: originCoords,
+            destination: destination,
+            dest_coords: destCoords,
+            cape_coords: capeCoords,
+            rail_route: [
+                NODE_COORDS['上海'] || [31.2304, 121.4737],
+                NODE_COORDS['西安'] || [34.3416, 108.9398],
+                NODE_COORDS['莫斯科'] || [55.7558, 37.6173],
+                NODE_COORDS['华沙'] || [52.2297, 21.0122],
+                NODE_COORDS['鹿特丹'] || [51.9244, 4.4777]
+            ],
+            winning_strategy: winningBid.strategy_name,
+            winning_agent: winningBid.agent_id,
+            consensus_hash: appState.consensus_result.block_hash,
+            panic_index: oracle.market_panic_index || 0,
+            blockade_days: oracle.estimated_blockade_days || 0
+        };
+
+        addLog('✅ 数字孪生沙盘渲染数据准备完成', 'success');
+        addLog('   阻断靶点: ' + disruptedNode + ' (' + disruptedCoords[0].toFixed(4) + '°, ' + disruptedCoords[1].toFixed(4) + '°)', 'info');
+        addLog('   运输路线: ' + origin + ' → ' + destination, 'info');
+        addLog('   中标方案: ' + winningBid.strategy_name, 'info');
+
+        appState.stage = 'stage4_complete';
+        addLog('🎉 四阶段流水线全部完成!', 'success');
+
+        drawMap(vizData);
+        setStage(4, '完成', 'done');
+    } catch(e) {
+        addLog('❌ 阶段四执行失败: ' + e.message, 'error');
+        alert('请求失败: ' + e.message);
+        setStage(4, '失败', '');
+    }
+    hideLoading();
+}
+
+// ---- 重置系统 ----
+async function resetSystem() {
+    appState.stage = 'idle';
+    appState.oracle_data = null;
+    appState.task_data = null;
+    appState.bids = [];
+    appState.winning_bid = null;
+    appState.consensus_result = null;
+    appState.logs = [];
+
+    for (let i = 1; i <= 4; i++) setStage(i, '待执行', '');
+    document.getElementById('oracle-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-text">运行阶段一后显示LLM提取的结构化参数</div></div>';
+    document.getElementById('game-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚔️</div><div class="empty-state-text">运行阶段二后显示承运商报价与决策</div></div>';
+    document.getElementById('consensus-result').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔗</div><div class="empty-state-text">运行阶段三后显示共识结果与区块哈希</div></div>';
+    document.getElementById('stat-uuid').textContent = '—';
+    document.getElementById('stat-node').textContent = '—';
+    document.getElementById('stat-panic').textContent = '—';
+    document.getElementById('stat-winner').textContent = '—';
+    document.getElementById('log-panel').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-text">等待系统运行...</div></div>';
+    if (typeof logCount !== 'undefined') logCount = 0;
+    document.getElementById('log-count').textContent = '0 条';
+    if (typeof utilityChart !== 'undefined' && utilityChart) { utilityChart.destroy(); utilityChart = null; }
+    if (typeof clearMap === 'function') clearMap();
+}
+
+// ---- pollLogs 改为本地刷新（无服务端轮询）----
+async function pollLogs() {
+    updateLogPanel();
+}
+
+// 屏蔽原 fetch('/api/...') 调用 —— 把所有原函数重命名以避免冲突
+window.__originalFunctionsDisabled = true;
+</script>
+
+</body>
+</html>

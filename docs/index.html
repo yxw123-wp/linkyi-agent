@@ -321,6 +321,19 @@
         }
         .btn-logout:hover { background: rgba(255, 71, 87, 0.2); }
 
+        /* 地图节点光环动画 */
+        @keyframes nodeRing {
+            0%, 100% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.3); opacity: 0.1; }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+        }
+        @keyframes flowDash {
+            to { stroke-dashoffset: -100; }
+        }
+
         /* 地图图例 */
         .map-legend {
             position: absolute; bottom: 16px; left: 16px; z-index: 1000;
@@ -330,6 +343,69 @@
             backdrop-filter: blur(12px);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             font-size: 11px; min-width: 180px;
+        }
+
+        /* 路线详情侧边面板 */
+        .route-detail-panel {
+            margin-top: 16px;
+            background: linear-gradient(135deg, rgba(15, 24, 48, 0.6), rgba(5, 8, 20, 0.4));
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            display: none;
+        }
+        .route-detail-title {
+            font-size: 13px; font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+            letter-spacing: 0.5px;
+        }
+        .route-detail-title::before {
+            content: ''; width: 4px; height: 14px;
+            background: linear-gradient(180deg, #00d4ff, #7b68ee);
+            border-radius: 2px;
+        }
+        .route-card {
+            background: rgba(5, 8, 20, 0.5);
+            border: 1px solid rgba(100, 130, 180, 0.2);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        .route-card:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.1);
+        }
+        .route-card.winner {
+            border-color: rgba(0, 255, 136, 0.5);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.06), rgba(5, 8, 20, 0.5));
+        }
+        .route-card.blocked {
+            border-color: rgba(255, 71, 87, 0.4);
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.04), rgba(5, 8, 20, 0.5));
+        }
+        .route-stop-chip {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: rgba(0, 212, 255, 0.08);
+            color: var(--text-primary);
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .route-stop-chip:hover {
+            background: rgba(0, 212, 255, 0.18);
+            border-color: rgba(0, 212, 255, 0.4);
+            transform: translateY(-1px);
+        }
+        .route-arrow {
+            color: var(--text-muted); font-size: 11px; margin: 0 2px;
         }
         .map-legend-title {
             font-size: 11px; font-weight: 700; color: var(--accent-cyan);
@@ -655,9 +731,10 @@
 
         /* 地图 */
         #map {
-            height: 480px; border-radius: 12px;
+            height: 580px; border-radius: 12px;
             border: 1px solid rgba(100, 130, 180, 0.2);
             background: var(--bg-secondary);
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
         }
         .leaflet-container { background: var(--bg-secondary) !important; }
 
@@ -1207,6 +1284,12 @@
                         </div>
                         <div class="legend-item">
                             <span class="legend-marker">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#ffaa00;box-shadow:0 0 6px #ffaa00;"></span>
+                            </span>
+                            <span>途经节点（点击查看详情）</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-marker">
                                 <span style="width:9px;height:9px;border-radius:50%;background:#ff4757;box-shadow:0 0 8px #ff4757;"></span>
                             </span>
                             <span>阻断节点（事件点）</span>
@@ -1223,8 +1306,13 @@
                             <span class="legend-line" style="background:#00ff88;box-shadow:0 0 6px #00ff88;"></span>
                             <span>中标方案路径</span>
                         </div>
+                        <div class="legend-item" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(100,130,180,0.15);font-size:10px;color:var(--text-muted);">
+                            💡 点击任意节点查看详情与距离
+                        </div>
                     </div>
                 </div>
+                <!-- 路线详情侧边面板：展示每条路线的完整站点列表 -->
+                <div class="route-detail-panel" id="route-side-panel"></div>
             </div>
 
             <!-- 图表 -->
@@ -1590,6 +1678,9 @@ async function resetSystem() {
     logCount = 0;
     document.getElementById('log-count').textContent = '0 条';
     if (utilityChart) { utilityChart.destroy(); utilityChart = null; }
+    // 清理路线详情面板
+    const rsp = document.getElementById('route-side-panel');
+    if (rsp) { rsp.innerHTML = ''; rsp.style.display = 'none'; }
     clearMap();
 }
 
@@ -1663,96 +1754,321 @@ function clearMap() {
 function drawMap(viz) {
     clearMap();
 
-    // 城市地理信息库（用于 hover 展示详细信息）
-    const CITY_INFO = {
-        '上海': {country: '中国', role: '全球最大集装箱港', region: '东亚·太平洋西岸'},
-        '深圳': {country: '中国', role: '华南主枢纽港', region: '东亚·太平洋西岸'},
-        '新加坡': {country: '新加坡', role: '全球第二大集装箱港', region: '东南亚·马六甲咽喉'},
-        '鹿特丹': {country: '荷兰', role: '欧洲第一海港', region: '西欧·莱茵河入海口'},
-        '洛杉矶': {country: '美国', role: '北美西海岸主枢纽', region: '北美·太平洋东岸'},
-        '迪拜': {country: '阿联酋', role: '中东最大转运港', region: '中东·波斯湾入口'},
-        '苏伊士': {country: '埃及', role: '全球海运干线咽喉', region: '北非·苏伊士地峡'},
-        '巴拿马': {country: '巴拿马', role: '美洲东西岸捷径', region: '中美洲·巴拿马地峡'},
-        '马六甲': {country: '马来西亚/印尼', role: '亚洲海运生命线', region: '东南亚·马六甲海峡'},
-        '霍尔木兹': {country: '伊朗/阿曼', role: '全球石油咽喉', region: '中东·波斯湾出口'},
-        '好望角': {country: '南非', role: '非洲南端绕航点', region: '南非·大西洋与印度洋交汇'},
-        '台湾海峡': {country: '中国', role: '东亚南北海运要道', region: '东亚·西太平洋'}
+    // ============================================================
+    // 完整节点坐标库（覆盖全球所有关键节点）
+    // ============================================================
+    const NC = {
+        '上海': [31.2304, 121.4737], '深圳': [22.5431, 114.0579],
+        '西安': [34.3416, 108.9398], '兰州': [36.0611, 103.8343],
+        '乌鲁木齐': [43.8256, 87.6168], '阿拉山口': [45.1700, 82.5600],
+        '新加坡': [1.3521, 103.8198], '科伦坡': [6.9271, 79.8612],
+        '亚丁': [12.7794, 45.0367], '吉布提': [11.8251, 42.5903],
+        '苏伊士运河': [29.9290, 32.5595], '苏伊士': [29.9290, 32.5595],
+        '塞得港': [31.2653, 32.3496],
+        '马耳他': [35.8884, 14.4477], '直布罗陀': [36.1408, -5.3490],
+        '鹿特丹': [51.9244, 4.4777], '汉堡': [53.5511, 9.9937],
+        '阿斯塔纳': [51.1605, 71.4704], '莫斯科': [55.7558, 37.6173],
+        '华沙': [52.2297, 21.0122], '柏林': [52.5200, 13.4050],
+        '好望角': [-34.3568, 18.4740],
+        '迪拜': [25.2048, 55.2708], '洛杉矶': [33.7701, -118.1937],
+        '巴拿马运河': [9.0828, -79.6802], '巴拿马': [9.0828, -79.6802],
+        '马六甲海峡': [2.5000, 101.4167], '马六甲': [2.5000, 101.4167],
+        '霍尔木兹海峡': [26.5667, 56.2500], '霍尔木兹': [26.5667, 56.2500],
+        '台湾海峡': [25.0000, 120.0000],
+        '印度洋中部': [-20.0, 75.0], '大西洋中部': [30.0, -30.0],
+        '地中海中部': [36.0, 17.0]
     };
-
-    function getCityInfo(name) {
-        for (const key in CITY_INFO) {
-            if (name.includes(key) || name === key) return CITY_INFO[key];
-        }
+    function coord(name) {
+        for (const k in NC) if (name === k || name.includes(k) || k.includes(name)) return NC[k];
         return null;
     }
 
-    function formatTooltip(name, role, info) {
-        if (!info) return `<div style="font-size:11px;"><b>${name}</b><br><span style="color:#8a99b8;">${role}</span></div>`;
-        return `<div style="font-size:11px;line-height:1.6;min-width:140px;">
-            <div style="font-size:12px;font-weight:700;color:#00d4ff;border-bottom:1px solid rgba(0,212,255,0.3);padding-bottom:4px;margin-bottom:4px;">${name}</div>
-            <div><span style="color:#8a99b8;">国家/地区：</span><span style="color:#e8eef8;">${info.country}</span></div>
-            <div><span style="color:#8a99b8;">角色：</span><span style="color:#e8eef8;">${info.role}</span></div>
-            <div><span style="color:#8a99b8;">区域：</span><span style="color:#e8eef8;">${info.region}</span></div>
-            <div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(100,130,180,0.15);color:#00ff88;">${role}</div>
+    // ============================================================
+    // 城市详细信息库（点击节点弹窗用）
+    // ============================================================
+    const CITY_INFO = {
+        '上海': {country:'中国',role:'全球最大集装箱港',region:'东亚·太平洋西岸',type:'海港'},
+        '深圳': {country:'中国',role:'华南主枢纽港',region:'东亚·太平洋西岸',type:'海港'},
+        '西安': {country:'中国',role:'中欧班列集结中心',region:'东亚·内陆',type:'铁路枢纽'},
+        '兰州': {country:'中国',role:'西北铁路枢纽',region:'东亚·内陆',type:'铁路枢纽'},
+        '乌鲁木齐': {country:'中国',role:'西向出境最后大站',region:'东亚·内陆',type:'铁路枢纽'},
+        '阿拉山口': {country:'中国/哈萨克斯坦',role:'中欧班列出境口岸',region:'中亚·陆路口岸',type:'口岸'},
+        '阿斯塔纳': {country:'哈萨克斯坦',role:'中亚铁路中转核心',region:'中亚·内陆',type:'铁路枢纽'},
+        '莫斯科': {country:'俄罗斯',role:'欧亚铁路交汇点',region:'东欧·内陆',type:'铁路枢纽'},
+        '华沙': {country:'波兰',role:'欧盟东境铁路门户',region:'中欧·内陆',type:'铁路枢纽'},
+        '柏林': {country:'德国',role:'欧洲铁路枢纽核心',region:'中欧·内陆',type:'铁路枢纽'},
+        '新加坡': {country:'新加坡',role:'全球第二大集装箱港',region:'东南亚·马六甲咽喉',type:'海港'},
+        '科伦坡': {country:'斯里兰卡',role:'印度洋转运主枢纽',region:'南亚·印度洋',type:'海港'},
+        '亚丁': {country:'也门',role:'红海入口战略港',region:'中东·红海南口',type:'海港'},
+        '吉布提': {country:'吉布提',role:'国际护航基地',region:'东非·亚丁湾',type:'海港'},
+        '苏伊士': {country:'埃及',role:'全球海运干线咽喉',region:'北非·苏伊士地峡',type:'运河'},
+        '塞得港': {country:'埃及',role:'苏伊士运河北口',region:'北非·地中海侧',type:'海港'},
+        '马耳他': {country:'马耳他',role:'地中海中转枢纽',region:'南欧·地中海中部',type:'海港'},
+        '直布罗陀': {country:'英国/西班牙',role:'地中海大西洋门户',region:'西欧·伊比利亚南端',type:'海峡'},
+        '鹿特丹': {country:'荷兰',role:'欧洲第一海港',region:'西欧·莱茵河入海口',type:'海港'},
+        '汉堡': {country:'德国',role:'北欧主枢纽港',region:'西欧·易北河',type:'海港'},
+        '好望角': {country:'南非',role:'非洲南端绕航点',region:'南非·大西洋与印度洋交汇',type:'海峡'},
+        '迪拜': {country:'阿联酋',role:'中东最大转运港',region:'中东·波斯湾入口',type:'海港'},
+        '洛杉矶': {country:'美国',role:'北美西海岸主枢纽',region:'北美·太平洋东岸',type:'海港'},
+        '巴拿马': {country:'巴拿马',role:'美洲东西岸捷径',region:'中美洲·巴拿马地峡',type:'运河'},
+        '马六甲': {country:'马来西亚/印尼',role:'亚洲海运生命线',region:'东南亚·马六甲海峡',type:'海峡'},
+        '霍尔木兹': {country:'伊朗/阿曼',role:'全球石油咽喉',region:'中东·波斯湾出口',type:'海峡'},
+        '台湾海峡': {country:'中国',role:'东亚南北海运要道',region:'东亚·西太平洋',type:'海峡'}
+    };
+    function getCityInfo(name) {
+        for (const k in CITY_INFO) if (name === k || name.includes(k) || k.includes(name)) return CITY_INFO[k];
+        return null;
+    }
+
+    // ============================================================
+    // Haversine 距离公式（计算两点球面距离 km）
+    // ============================================================
+    function haversine(a, b) {
+        const R = 6371;
+        const dLat = (b[0]-a[0]) * Math.PI / 180;
+        const dLon = (b[1]-a[1]) * Math.PI / 180;
+        const lat1 = a[0] * Math.PI / 180;
+        const lat2 = b[0] * Math.PI / 180;
+        const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+        return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+    }
+
+    // ============================================================
+    // 三条路线模板（包含完整中间节点序列）
+    // ============================================================
+    const ORIGIN = viz.origin || '上海';
+    const DEST = viz.destination || '鹿特丹';
+    const DISRUPTED = viz.disrupted_node || '苏伊士运河';
+
+    // 路线模板按"上海→鹿特丹"主流程；其他起讫点用相近节点
+    const ROUTE_TEMPLATES = {
+        original: {
+            name: '原方案：苏伊士运河干线',
+            status: 'BLOCKED',
+            color: '#ff4757',
+            weight: 2.5,
+            opacity: 0.55,
+            dashArray: '8,6',
+            icon: '❌',
+            stops: [ORIGIN, '新加坡', '科伦坡', '亚丁', DISRUPTED, '塞得港', '马耳他', '直布罗陀', DEST]
+        },
+        cape: {
+            name: '备选A：好望角绕行',
+            status: 'ALTERNATIVE',
+            color: '#ffaa00',
+            weight: 3,
+            opacity: 0.85,
+            dashArray: '12,5',
+            icon: '🔄',
+            stops: [ORIGIN, '新加坡', '科伦坡', '印度洋中部', '好望角', '大西洋中部', '直布罗陀', DEST]
+        },
+        rail: {
+            name: '备选B：中欧班列铁路',
+            status: 'ALTERNATIVE',
+            color: '#ffaa00',
+            weight: 3,
+            opacity: 0.85,
+            dashArray: '12,5',
+            icon: '🚂',
+            stops: [ORIGIN, '西安', '兰州', '乌鲁木齐', '阿拉山口', '阿斯塔纳', '莫斯科', '华沙', '柏林', DEST]
+        }
+    };
+
+    // 中标判定
+    const isOceanWin = viz.winning_agent.includes('Ocean');
+    const isRailWin = viz.winning_agent.includes('Rail');
+    if (isOceanWin) {
+        ROUTE_TEMPLATES.cape.status = 'WINNER';
+        ROUTE_TEMPLATES.cape.color = '#00ff88';
+        ROUTE_TEMPLATES.cape.weight = 4.5;
+        ROUTE_TEMPLATES.cape.opacity = 0.95;
+        ROUTE_TEMPLATES.cape.dashArray = null;
+        ROUTE_TEMPLATES.cape.icon = '✅';
+    }
+    if (isRailWin) {
+        ROUTE_TEMPLATES.rail.status = 'WINNER';
+        ROUTE_TEMPLATES.rail.color = '#00ff88';
+        ROUTE_TEMPLATES.rail.weight = 4.5;
+        ROUTE_TEMPLATES.rail.opacity = 0.95;
+        ROUTE_TEMPLATES.rail.dashArray = null;
+        ROUTE_TEMPLATES.rail.icon = '✅';
+    }
+
+    // ============================================================
+    // 节点图标工厂（带序号、不同颜色）
+    // ============================================================
+    function makeIcon(num, kind, isWinner) {
+        const colors = {
+            origin: '#00d4ff',
+            dest: '#00ff88',
+            disrupted: '#ff4757',
+            stop: isWinner ? '#00ff88' : '#ffaa00',
+            transit: isWinner ? '#33ff99' : '#c8a855'
+        };
+        const c = colors[kind] || colors.stop;
+        const size = kind === 'disrupted' ? 32 : (kind === 'origin' || kind === 'dest' ? 24 : 22);
+        const ring = kind === 'disrupted' ? 'animation:pulse 1s infinite;' : 'animation:nodeRing 2.4s ease-in-out infinite;';
+        return L.divIcon({
+            className: '',
+            html: `<div style="position:relative;width:${size}px;height:${size}px;">
+                <div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid ${c};opacity:0.4;${ring}"></div>
+                <div style="width:${size}px;height:${size}px;background:${c};border-radius:50%;border:2px solid #fff;box-shadow:0 0 16px ${c},0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:${Math.round(size*0.5)}px;">${num||''}</div>
+            </div>`,
+            iconSize: [size, size], iconAnchor: [size/2, size/2]
+        });
+    }
+
+    // ============================================================
+    // 节点详情弹窗构造器
+    // ============================================================
+    function popupHTML(name, kind, info, routeName, distNext, totalDist, stopNum, totalStops) {
+        if (!info) info = {country:'未知',role:'途经节点',region:'未分类',type:'中转点'};
+        const kindMap = {
+            origin: '📦 起运节点',
+            dest: '🏁 终到节点',
+            disrupted: '⚠️ 阻断节点',
+            stop: '🚉 途经节点',
+            transit: '🌊 中转航段'
+        };
+        return `<div style="font-size:12px;line-height:1.7;min-width:230px;max-width:280px;">
+            <div style="font-size:14px;font-weight:700;color:${kind==='disrupted'?'#ff4757':kind==='dest'?'#00ff88':kind==='origin'?'#00d4ff':'#ffaa00'};border-bottom:1px solid rgba(100,130,180,0.25);padding-bottom:6px;margin-bottom:8px;">
+                ${kindMap[kind] || '📍 节点'} · ${name}
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+                <span style="color:#8a99b8;">所在国家</span><span style="color:#e8eef8;">${info.country}</span>
+                <span style="color:#8a99b8;">功能定位</span><span style="color:#e8eef8;">${info.role}</span>
+                <span style="color:#8a99b8;">所属区域</span><span style="color:#e8eef8;">${info.region}</span>
+                <span style="color:#8a99b8;">节点类型</span><span style="color:#e8eef8;">${info.type}</span>
+                <span style="color:#8a99b8;">所属路线</span><span style="color:#e8eef8;">${routeName}</span>
+                <span style="color:#8a99b8;">站点序号</span><span style="color:#00d4ff;">${stopNum} / ${totalStops}</span>
+                ${distNext!==null ? `<span style="color:#8a99b8;">距下一站</span><span style="color:#00ff88;">${distNext} km</span>` : ''}
+                ${totalDist!==null ? `<span style="color:#8a99b8;">已行距离</span><span style="color:#ffaa00;">${totalDist} km</span>` : ''}
+            </div>
         </div>`;
     }
 
-    const disruptedIcon = L.divIcon({
-        className: '', html: '<div style="width:28px;height:28px;background:#ff4757;border-radius:50%;border:3px solid #fff;box-shadow:0 0 25px #ff4757;animation:pulse 1s infinite;"></div>',
-        iconSize: [28, 28], iconAnchor: [14, 14]
-    });
-    const originIcon = L.divIcon({
-        className: '', html: '<div style="width:20px;height:20px;background:#00d4ff;border-radius:50%;border:2px solid #fff;box-shadow:0 0 15px #00d4ff;"></div>',
-        iconSize: [20, 20], iconAnchor: [10, 10]
-    });
-    const destIcon = L.divIcon({
-        className: '', html: '<div style="width:20px;height:20px;background:#00ff88;border-radius:50%;border:2px solid #fff;box-shadow:0 0 15px #00ff88;"></div>',
-        iconSize: [20, 20], iconAnchor: [10, 10]
-    });
+    // ============================================================
+    // 渲染每条路线 + 完整节点
+    // ============================================================
+    const routeDetails = []; // 用于侧边面板
+    const allBounds = [];
 
-    // 阻断节点（鼠标 hover 即显示信息）
-    mapLayers.push(L.marker(viz.disrupted_coords, {icon: disruptedIcon}).addTo(map)
-        .bindTooltip(formatTooltip(viz.disrupted_node, '⚠️ 阻断节点（事件发生地）', getCityInfo(viz.disrupted_node)), {permanent: false, direction: 'top', offset: [0, -10], className: 'map-tip'})
-        .bindPopup('<b>⚠️ 阻断节点</b><br>' + viz.disrupted_node));
+    for (const key of ['original', 'cape', 'rail']) {
+        const tpl = ROUTE_TEMPLATES[key];
+        const coords = [];
+        const stopInfos = [];
 
-    // 发货地
-    mapLayers.push(L.marker(viz.origin_coords, {icon: originIcon}).addTo(map)
-        .bindTooltip(formatTooltip(viz.origin, '📦 发货地（运输起点）', getCityInfo(viz.origin)), {permanent: false, direction: 'top', offset: [0, -8], className: 'map-tip'})
-        .bindPopup('<b>📦 发货地</b><br>' + viz.origin));
+        // 解析所有节点坐标
+        tpl.stops.forEach(name => {
+            let c = coord(name);
+            if (!c) {
+                // 兼容原 viz.origin_coords / dest_coords
+                if (name === ORIGIN) c = viz.origin_coords;
+                else if (name === DEST) c = viz.dest_coords;
+                else if (name === DISRUPTED) c = viz.disrupted_coords;
+                else c = viz.origin_coords; // 兜底
+            }
+            coords.push(c);
+            allBounds.push(c);
+            stopInfos.push({name, coords: c, info: getCityInfo(name)});
+        });
 
-    // 目的地
-    mapLayers.push(L.marker(viz.dest_coords, {icon: destIcon}).addTo(map)
-        .bindTooltip(formatTooltip(viz.destination, '🏁 目的地（运输终点）', getCityInfo(viz.destination)), {permanent: false, direction: 'top', offset: [0, -8], className: 'map-tip'})
-        .bindPopup('<b>🏁 目的地</b><br>' + viz.destination));
+        // 绘制连线
+        const polylineOpts = {color: tpl.color, weight: tpl.weight, opacity: tpl.opacity};
+        if (tpl.dashArray) polylineOpts.dashArray = tpl.dashArray;
+        const line = L.polyline(coords, polylineOpts).addTo(map);
+        line.bindTooltip(`<b>${tpl.icon} ${tpl.name}</b><br><span style="color:#8a99b8;">共 ${stopInfos.length} 站</span>`, {sticky: true, className: 'map-tip'});
+        mapLayers.push(line);
 
-    // 苏伊士原始航线（废弃，红色虚线）
-    const suezRoute = [viz.origin_coords, [24.5, 36.0], viz.disrupted_coords, [34.0, 28.0], viz.dest_coords];
-    mapLayers.push(L.polyline(suezRoute, {color: '#ff4757', weight: 2, opacity: 0.5, dashArray: '8,6'}).addTo(map)
-        .bindTooltip('❌ 原方案：苏伊士运河干线（已阻断废弃）', {sticky: true, className: 'map-tip'}));
+        // 绘制每个节点
+        let cumDist = 0;
+        stopInfos.forEach((stop, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === stopInfos.length - 1;
+            const isDisrupted = stop.name === DISRUPTED || stop.name.includes('苏伊士') || stop.name.includes('阻断');
 
-    // 好望角绕行
-    const capeRoute = [viz.origin_coords, [5.0, 100.0], [-10.0, 80.0], viz.cape_coords, [-20.0, 10.0], [40.0, -10.0], viz.dest_coords];
-    const isOceanWin = viz.winning_agent.includes('Ocean');
-    mapLayers.push(L.polyline(capeRoute, {
-        color: isOceanWin ? '#00ff88' : '#ffaa00',
-        weight: isOceanWin ? 4 : 2.5, opacity: 0.85, dashArray: '12,4'
-    }).addTo(map)
-      .bindTooltip((isOceanWin ? '✅ 中标·' : '🔄 备选·') + '海运绕行好望角航线', {sticky: true, className: 'map-tip'})
-      .bindPopup(isOceanWin ? '✅ 海运绕行好望角（中标）' : '海运绕行好望角（淘汰）'));
+            let kind;
+            if (isDisrupted && key === 'original') kind = 'disrupted';
+            else if (isFirst) kind = 'origin';
+            else if (isLast) kind = 'dest';
+            else kind = 'stop';
 
-    // 中欧班列
-    const isRailWin = viz.winning_agent.includes('Rail');
-    mapLayers.push(L.polyline(viz.rail_route, {
-        color: isRailWin ? '#00ff88' : '#ffaa00',
-        weight: isRailWin ? 4 : 2.5, opacity: 0.85, dashArray: '12,4'
-    }).addTo(map)
-      .bindTooltip((isRailWin ? '✅ 中标·' : '🔄 备选·') + '中欧班列铁路线', {sticky: true, className: 'map-tip'})
-      .bindPopup(isRailWin ? '✅ 中欧班列铁路（中标）' : '中欧班列铁路（淘汰）'));
+            // 跳过重复节点（避免起讫点重复绘制）
+            // 但阻断节点单独绘制一次（用红色图标）
+            const isWinner = tpl.status === 'WINNER';
+            const icon = makeIcon(idx + 1, kind, isWinner);
+
+            const distNext = isLast ? null : haversine(stop.coords, stopInfos[idx+1].coords);
+            if (distNext !== null) cumDist += distNext;
+            const distSoFar = idx === 0 ? 0 : cumDist - (distNext || 0);
+
+            const popupContent = popupHTML(stop.name, kind, stop.info, tpl.name, distNext, distSoFar, idx + 1, stopInfos.length);
+            const tooltipText = `<b>${tpl.icon} ${stop.name}</b><br><span style="color:#8a99b8;">${stop.info ? stop.info.role : '途经'}</span>${distNext !== null ? '<br><span style="color:#00ff88;">→ 下一站 ' + distNext + ' km</span>' : ''}`;
+
+            const marker = L.marker(stop.coords, {icon}).addTo(map)
+                .bindTooltip(tooltipText, {permanent: false, direction: 'top', offset: [0, -14], className: 'map-tip'})
+                .bindPopup(popupContent);
+
+            // 阻断节点添加涟漪效果
+            if (kind === 'disrupted') {
+                L.circle(stop.coords, {color: '#ff4757', fillColor: '#ff4757', fillOpacity: 0.15, radius: 200000}).addTo(map);
+                L.circle(stop.coords, {color: '#ff4757', fillColor: '#ff4757', fillOpacity: 0.08, radius: 400000}).addTo(map);
+            }
+
+            mapLayers.push(marker);
+            stop.cumDist = distSoFar;
+            stop.distNext = distNext;
+        });
+
+        // 总距离
+        const totalDist = stopInfos.reduce((acc, s, i) => {
+            if (i === 0) return 0;
+            return acc + haversine(stopInfos[i-1].coords, s.coords);
+        }, 0);
+
+        routeDetails.push({
+            key,
+            name: tpl.name,
+            status: tpl.status,
+            color: tpl.color,
+            icon: tpl.icon,
+            stops: stopInfos,
+            totalDist,
+            isWinner: tpl.status === 'WINNER'
+        });
+    }
+
+    // ============================================================
+    // 渲染侧边面板（路线详情列表）
+    // ============================================================
+    const sidePanel = document.getElementById('route-side-panel');
+    if (sidePanel) {
+        let html = '';
+        routeDetails.forEach(r => {
+            const winnerBadge = r.isWinner ? '<span style="background:rgba(0,255,136,0.18);color:#00ff88;border:1px solid rgba(0,255,136,0.5);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.5px;">中标方案</span>' : (r.key === 'original' ? '<span style="background:rgba(255,71,87,0.18);color:#ff4757;border:1px solid rgba(255,71,87,0.5);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">已阻断</span>' : '<span style="background:rgba(255,170,0,0.12);color:#ffaa00;border:1px solid rgba(255,170,0,0.4);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;">备选</span>');
+            html += `<div style="background:rgba(5,8,20,0.5);border:1px solid ${r.isWinner ? 'rgba(0,255,136,0.4)' : r.key==='original' ? 'rgba(255,71,87,0.3)' : 'rgba(255,170,0,0.3)'};border-radius:10px;padding:12px;margin-bottom:10px;${r.isWinner ? 'box-shadow:0 0 20px rgba(0,255,136,0.15);' : ''}">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="font-size:13px;font-weight:700;color:${r.color};">${r.icon} ${r.name}</div>
+                    ${winnerBadge}
+                </div>
+                <div style="font-size:11px;color:#8a99b8;margin-bottom:8px;">总里程 <span style="color:#e8eef8;font-weight:600;">${r.totalDist.toLocaleString()} km</span> · ${r.stops.length} 站</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">`;
+            r.stops.forEach((s, i) => {
+                if (i > 0) html += '<span style="color:#4a5568;font-size:11px;">→</span>';
+                const dotColor = s.name === DISRUPTED ? '#ff4757' : (i === 0 ? '#00d4ff' : (i === r.stops.length-1 ? '#00ff88' : r.color));
+                html += `<span style="background:rgba(${r.isWinner ? '0,255,136' : '255,170,0'},0.08);color:#e8eef8;padding:2px 8px;border-radius:6px;font-size:11px;border:1px solid rgba(${r.isWinner ? '0,255,136' : '255,170,0'},0.2);" title="${s.info?s.info.role:''}｜距下一站: ${s.distNext!==null?s.distNext+' km':'—'}"><span style="color:${dotColor};font-weight:700;">${i+1}.</span> ${s.name}</span>`;
+            });
+            html += '</div></div>';
+        });
+        sidePanel.innerHTML = html;
+        sidePanel.style.display = 'block';
+    }
 
     // 显示图例
     document.getElementById('map-legend').style.display = 'block';
 
-    map.fitBounds(L.latLngBounds([viz.origin_coords, viz.dest_coords, viz.disrupted_coords, viz.cape_coords]), {padding: [60, 60]});
+    // 自动适配视野（包含所有节点）
+    map.fitBounds(L.latLngBounds(allBounds), {padding: [60, 60]});
 }
 
 // ===================== 图表 =====================
@@ -2340,6 +2656,9 @@ async function resetSystem() {
     if (typeof logCount !== 'undefined') logCount = 0;
     document.getElementById('log-count').textContent = '0 条';
     if (typeof utilityChart !== 'undefined' && utilityChart) { utilityChart.destroy(); utilityChart = null; }
+    // 清理路线详情面板
+    const rsp = document.getElementById('route-side-panel');
+    if (rsp) { rsp.innerHTML = ''; rsp.style.display = 'none'; }
     if (typeof clearMap === 'function') clearMap();
 }
 
